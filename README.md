@@ -366,3 +366,4 @@ Tested with **Julia 1.12**. Required packages:
 | `LinearAlgebra` | Eigenvalues, matrix operations |
 | `JSON3` | Fast JSON serialisation / deserialisation |
 | `Random` | Reproducible random number generation |
+# tipping_hoi
