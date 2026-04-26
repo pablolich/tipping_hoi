@@ -1,0 +1,251 @@
+\documentclass[
+ reprint,
+ amsmath,
+ amssymb,
+ aps,
+ superscriptaddress,
+]{revtex4-2}
+
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{graphicx}
+\usepackage{dcolumn}
+\usepackage{bm}
+\usepackage{grffile}
+\usepackage{hyperref}
+\hypersetup{
+     colorlinks = true,
+     linkcolor = blue,
+     anchorcolor = blue,
+     citecolor = red,
+     filecolor = blue,
+     urlcolor = blue
+     }
+
+\renewcommand{\selectlanguage}[1]{} % this removes the language error messages
+
+\begin{document}
+
+\title{Tipping points are typical in ecosystems with higher-order interactions}
+
+\author{Pablo Lechón-Alonso}
+\email{plechon@uchicago.edu}
+\affiliation{Department of Ecology \& Evolution, University of Chicago, 1101 E. 57th Street, Chicago, IL 60637, USA}
+
+\author{Zachary R. Miller}
+\email{zachary.miller@yale.edu}
+\affiliation{Department of Earth \& Planetary Sciences, Yale University, New Haven, Connecticut, USA}
+
+\author{Armun Liaghat}
+\affiliation{Department of Biology, New York University, New York, New York, USA}
+\affiliation{Department of Ecology \& Evolutionary Biology, University of Michigan, Ann Arbor, Michigan, USA}
+
+\author{Paul Breiding}
+\affiliation{University of Osnabrück, Albrechtstr.\ 28a, 49076 Osnabrück, Germany}
+
+\author{Mercedes Pascual}
+\affiliation{Department of Biology, New York University, New York, New York, USA}
+\affiliation{Department of Environmental Studies, New York University, New York, New York, USA}
+\affiliation{Santa Fe Institute, Santa Fe, New Mexico, USA}
+
+\author{Stefano Allesina}
+\affiliation{Department of Ecology \& Evolution, University of Chicago, 1101 E. 57th Street, Chicago, IL 60637, USA}
+\affiliation{Northwestern Institute on Complex Systems, Northwestern University, Evanston, IL, USA}
+
+
+\date{\today}
+
+\begin{abstract}
+
+Whether species-rich communities erode gradually or collapse abruptly under environmental change is a central question in ecology \cite{scheffer_anticipating_2012}. Classical pairwise theory predicts that coexistence is always lost gradually, through smooth declines to extinction \cite{grilli_feasibility_2017}, yet real ecological interactions are often strongly state-dependent -- shaped by nonlinearities that fixed pairwise coefficients cannot capture \cite{levine_beyond_2017}. Here we show that higher-order (nonlinear) interactions make abrupt, irreversible loss of coexistence a typical route to community collapse: across diverse random communities, the equilibrium supporting coexistence disappears suddenly at a fold bifurcation. 
+Using polynomial homotopy continuation \cite{breiding_homotopycontinuationjl_2018} to track equilibria as environmental conditions change, we find that folds progressively dominate the boundary of the coexistence domain as nonlinearity strengthens, replacing the gradual extinctions of pairwise theory. Furthermore, the sign structure of higher-order interactions controls both the onset of tipping-points and whether biodiversity buffers or amplifies collapse. Because higher-order and nonlinear interactions are intimately linked, tipping points also arise generically in pairwise models with strong nonlinearity. Applying our continuation framework to a canonical model of plant–pollinator collapse \cite{lever_sudden_2014}, we formally resolve its bifurcation structure as fold-mediated, and we show that fold bifurcations are typical across published multispecies models spanning mutualistic, competitive, and consumer-resource interactions. These results challenge the expectation that monitoring abundances suffices to anticipate collapse, and unify structural-stability theory, which delineates the safe operating space for coexistence, with critical transition theory, which characterizes the nature of its boundaries.
+
+\end{abstract}
+
+\maketitle
+
+\vspace{0.5cm}
+
+Ecosystems worldwide face environmental changes that will push communities of species beyond the conditions supporting present-day coexistence. Understanding when and how coexistence will be lost are central questions for both ecological theory and conservation \cite{scheffer_anticipating_2012}. Structural-stability theory addresses the first of these questions by taking a geometric approach, characterizing the size and shape of the feasibility domain -- the space of environmental conditions under which a community admits an equilibrium where all species have positive abundances \cite{rohr_structural_2014, grilli_feasibility_2017, saavedra_structural_2017, song_guideline_2018}. In generalized Lotka–Volterra (GLV) models and related models that underpin this framework \cite{cenci_structural_2018}, interactions are pairwise and equilibrium conditions are linear in species abundances, making the feasibility domain analytically tractable. A key consequence of this linearity is that it also settles the second question: feasibility can only be lost through transcritical bifurcations, in which one or more species declines smoothly to zero abundance -- a fundamentally gradual change \cite{grilli_feasibility_2017}.
+
+Yet real ecological interactions are strongly state-dependent, shaped by saturating functional responses, context-dependent behaviors, environmental modification, and other nonlinearities that make per-capita interaction effects depend on community state \cite{wilbur_competition_1972, peacor_contribution_2001, mickalide_higher-order_2019, kelsic_counteraction_2015, miller_metapopulations_2021, lai_non-additive_2022, hsieh_surprising_2022}. Such effects cannot be absorbed into fixed pairwise coefficients \cite{levine_beyond_2017, kleinhesselink_detecting_2022}. The theory of critical transitions shows that nonlinear feedbacks can fundamentally alter how coexistence is lost, destroying stable states abruptly at fold bifurcations -- tipping points -- where the system shifts discontinuously and hysteretically to an alternative state \cite{may_thresholds_1977, scheffer_catastrophic_2001, rietkerk_self-organized_2004, scheffer_generic_2015, moreno-spiegelberg_how_2025, mumby_thresholds_2007}. However, this body of work has mostly relied on low-dimensional models with specific feedback architectures \cite{kefi_scaling_2022}. Although ecosystem collapse consistent with critical transitions has been explored numerically in species-rich networks with specific interaction types, such as plant-pollinator or consumer-resource models \cite{lever_sudden_2014, jiang_predicting_2018, dakos_critical_2014, karatayev_potential_2023}, it remains unclear whether tipping points arise generically in diverse communities with nonlinear interactions. 
+
+Structural-stability theory handles diversity but assumes linearity; critical transitions theory handles nonlinearity but not diversity. This gap is a key barrier to characterizing resilience in realistic communities, where it is important to understand not only the size of the safe operating space for coexistence, but also how collapse unfolds once its boundary is crossed \cite{bascompte_resilience_2023, lever_foreseeing_2020, kefi_scaling_2022}. 
+
+Here we address this question by extending the GLV model with quadratic higher-order interaction (HOI) terms as a minimal representation of state-dependent interaction effects \cite{kleinhesselink_detecting_2022}. The resulting equilibrium conditions are systems of coupled multivariate polynomials of degree two, for which no closed-form solution exists in general beyond small systems \cite{stewart_galois_1998}. In addition, the exponential growth in the number of equilibria makes feasibility boundaries challenging to study even computationally \cite{aladwani_ecological_2020}. We overcome these obstacles using polynomial homotopy continuation\cite{breiding_homotopycontinuationjl_2018}, a method from numerical algebraic geometry \cite{sommese_numerical_2005} that tracks all solutions of polynomial systems as parameters vary. 
+
+By subjecting model communities with HOIs to growth-rate perturbations and mapping their feasibility boundaries, we show that fold bifurcations progressively dominate the boundary as nonlinearity strengthens, replacing the gradual extinctions that characterize pairwise theory. The sign structure of HOIs controls tipping-point prevalence and whether biodiversity acts as a buffer or amplifier of abrupt collapse. Furthermore, because saturating functional responses generate effective higher-order interactions \cite{letten_mechanistic_2019, abrams_arguments_1983}, we use the same continuation framework to explore tipping points in pairwise models with nonlinear interactions. We formally resolve the bifurcation structure of a canonical model of ecosystem collapse in plant-pollinator networks, confirming it is fold-mediated. More broadly, we find that fold-mediated coexistence loss is common in other published multispecies models across interaction types and functional forms, and becomes more common as interactions are more nonlinear.
+
+\subsection*{Two routes to coexistence loss}
+
+\begin{figure}
+    \centering    
+    \includegraphics[width=\linewidth]{figures/sys_12_alphaidx_5_ray_60_row_460_hysteresis_table_panels.pdf}
+    \caption{\textbf{Two ways coexistence can be lost in a three-species community with higher-order interactions.} Black/grey curves show equilibrium abundances of each species computed using polynomial homotopy continuation ($\mathbf{x}^\star$, y-axis) as perturbation magnitude ($\delta$, x-axis) varies along two fixed perturbation directions (panels). Line type indicates stability of the equilibrium (solid: stable; dashed: unstable). Triangles mark endpoints of numerical integrations of Eq.~\eqref{eq:glv_hoi} that validate the continuation curves: in the forward sweep (orange right-pointing triangles), $\delta$ is increased in small steps from $\delta=0$, with each integration initialized at the final state of the previous step; the backward sweep (blue left-pointing triangles) reverses the process from the post-collapse state, testing where coexistence is recovered. Vertical dashed lines mark critical perturbations where coexistence is lost/gained. Panel \textbf{a} shows gradual extinction: one species declines continuously to zero abundance at $\delta_c$ (where a transcritical bifurcation takes place), and the same threshold is recovered upon reversal of the perturbation (arrows). Panel \textbf{b} shows abrupt collapse: coexistence is lost at a fold bifurcation as the perturbation magnitude increases. When the perturbation is gradually reversed (backward sweep), recovery occurs at a different critical value, indicating hysteresis.}
+    \label{fig:hook}
+\end{figure}
+
+We study coexistence under environmental perturbations in generalized Lotka-Volterra (GLV) models with higher-order interactions (HOIs),
+\begin{equation}
+\dot x_i \;=\; x_i\Big[r_i \;+\; (1-\alpha)\sum_{j} A_{ij}\,x_j \;+\; \alpha\sum_{j,k} B_{ijk}\,x_jx_k\Big],
+\label{eq:glv_hoi}
+\end{equation}
+where \(\mathbf{x} = (x_i)\) are abundances, \(\mathbf{r} = (r_i)\) are intrinsic growth rates, $A_{ij}$ entries are pairwise interactions, $B_{ijk}$ entries are three-way interactions (HOIs), and \(\alpha\in[0,1]\) controls the relative weight of higher-order vs.\ pairwise terms (recovering the classic pairwise GLV when \(\alpha=0\); see~\cite{duran-sala_towards_2025}). Throughout, we model environmental change by perturbing intrinsic growth rates along fixed directions:
+\begin{equation}
+\mathbf{r}=\mathbf{r_0}+\delta\,\mathbf{u},
+\label{eq:pert_growth}
+\end{equation}
+where \(\mathbf{u}\) is the direction of the perturbation and \(\delta\) is its magnitude. We explore the robustness of the coexistence equilibrium and how it is lost by tracking the long-term community state as \(\delta\) varies (see SI Sec. 2).
+\begin{figure*}
+    \centering
+    \includegraphics[width=\textwidth]{figures/alphas_deltar_row_py.png}
+    \caption{\textbf{Feasibility domains as HOI strength increases.} Shading shows \(\min_i x_i^\star(r_1, r_2)\) along the focal coexistence equilibrium branch (where $r_i = r^0_{i} + \delta u_i$). Blue indicates a positive equilibrium (feasible), red indicates at least one negative component (unfeasible), off-white background indicates regions where no real equilibrium exists (complex). Black curves are boundaries where a species gradually declines to zero at a transcritical bifurcation (gradual boundary, see bottom inset in panel \textbf{e}, and Fig~\ref{fig:hook}\textbf{a}). Purple curves are boundaries where two equilibria collide and disappear from the real line at a fold bifurcation (abrupt boundary, see top inset of panel \textbf{e}, and Fig~\ref{fig:hook}\textbf{b}). Left to right, stronger HOIs bend gradual boundaries (\textbf{a}, \textbf{b}) and generate abrupt boundaries (\textbf{c}-\textbf{e}) that ultimately truncate the feasible region. The baseline environmental state (cross) is plotted across all panels, and one perturbation direction $\mathbf{u}$ is highlighted (dashed segment). Along this direction, the distance to the gradual boundary ($\delta_c$) varies as $\alpha$ increases (\textbf{a}-\textbf{c}), and eventually the gradual boundary is superseded by an abrupt one (\textbf{d},\textbf{e}). Lines: analytic boundaries obtained using elimination theory; points: numerical boundary points obtained by polynomial homotopy continuation along a set of 100 perturbation directions. Interior black curves correspond to gradual boundaries of additional equilibria introduced by HOIs, which do not affect the focal branch.}
+    \label{fig:feasibility_domain}
+\end{figure*}
+In the pairwise model (\(\alpha=0\)), the coexistence equilibrium \(\mathbf{x}^*\) is mapped linearly to \(\mathbf{r}\), so it shifts continuously under environmental forcing, and extinctions can only occur when species abundances are driven smoothly to zero. With HOIs, however, the same ecosystem can respond in fundamentally different ways depending on the perturbation direction, even from the same baseline coexistence state (Fig.~\ref{fig:hook}, $\delta=0$, and SI Sec. 1). Along one direction (Fig.~\ref{fig:hook}\textbf{a}), numerical integration of Eq.~\eqref{eq:glv_hoi} (crosses) tracks the stable coexistence branch found by polynomial homotopy continuation (lines) until one species smoothly declines to zero abundance at a transcritical bifurcation ($\delta_c$, vertical dashed line); reversing the perturbation recovers coexistence at the same threshold. Along a different direction (Fig.~\ref{fig:hook}\textbf{b}), we find instead a critical transition: trajectories follow the stable coexistence branch until it terminates at a fold (saddle-node) bifurcation, beyond which no nearby stable coexistence equilibrium exists and the system collapses to an alternative attractor where one species is absent. This transition exhibits hysteresis: Coexistence is regained only after reversing the perturbation well past the forward critical point~(Fig.~\ref{fig:hook}\textbf{b}).
+
+\subsection*{Higher-order effects reshape coexistence}
+
+To connect the bifurcation picture in Fig.~\ref{fig:hook}, which follows two specific perturbation directions, to a geometric, global notion of robustness, we next visualize coexistence geometry in a two-species system. With two species, interactions are necessarily pairwise, but they include nonlinear per capita terms. Figure~\ref{fig:feasibility_domain} shows how the feasibility domain -- the set of growth rates that admit a positive coexistence equilibrium -- deforms as non-linearity ($\alpha$) strengthens (panels \textbf{a}-\textbf{e}). For $\alpha=0$ the domain is the classical feasibility cone \cite{saavedra_structural_2017, song_guideline_2018, rohr_structural_2014} whose boundaries are transcritical bifurcations -- gradual extinctions at which one species approaches zero continuously (Fig.~\ref{fig:hook}\textbf{a}). As $\alpha$ increases, these gradual boundaries bend (Fig.~\ref{fig:feasibility_domain}\textbf{b}), and for sufficiently strong HOIs, a new boundary type emerges: the coexistence equilibrium abruptly disappears through the loss of real solutions to the equilibrium equations at a fold bifurcation (Fig.~\ref{fig:feasibility_domain}\textbf{c}-\textbf{e}). This abrupt boundary initially lies outside the feasibility domain for small $\alpha$ but ultimately truncates it. Throughout, we restrict our attention to the focal coexistence branch, which continues smoothly from the unique coexistence equilibrium at $\alpha=0$. Other equilibria can be created by HOIs, generating additional interior boundaries (e.g., interior black curves in panels \textbf{c}-\textbf{e}).
+
+In two dimensions, this geometric picture can be computed in closed form: gradual boundaries follow from the vanishing of a coordinate of the coexistence equilibrium, while abrupt boundaries correspond to the vanishing of the appropriate discriminant (a classical algebraic object called tact invariant \cite{breiding_3264_2019}; see Methods and SI Sec. 3). However, the resulting expressions are already unwieldy for $n=2$ and become intractable in higher dimensions, motivating our computational approach. We use the analytic boundary in Fig.~\ref{fig:feasibility_domain} as a ground-truth benchmark to validate the continuation-based numerical pipeline used for larger communities: the numerical boundary points found using polynomial homotopy continuation along fixed perturbation directions (dots, see Eq.~\eqref{eq:pert_growth}) coincide with the exact analytic curves (lines).
+ 
+\begin{figure*}
+    \centering
+    \includegraphics[width=0.8\linewidth]{figures/figure_3.pdf}
+    \caption{\textbf{The strength and sign of higher-order interactions controls tipping-point prevalence.} Panels show results for random multispecies communities ($\mu_A=0$, $\sigma_A=\sigma_B=1$) with three levels of HOI mean ($\mu_B\in\{-0.1,\,0,\,0.1\}$, rows). Panel \textbf{g} shows the empirical distributions of off-diagonal pairwise interactions $A_{ij}$ (shared across $\mu_B$, grey) and higher-order interactions $B_{ijk}$ (coloured by $\mu_B$) for communities of size $n=4$. For each HOI strength ($\alpha$, x-axis) and community size ($n$, colors), we perturb growth rates along 128 directions and classify the first boundary encountered by the continued coexistence equilibrium. Panels \textbf{a}-\textbf{f} show the fraction of directions terminating at a gradual (left column) or abrupt (right column) boundary, for each value of $\mu_B$ (row). Connected points give the median across replicates for each $(n,\alpha)$ condition. Panels \textbf{h}-\textbf{k} characterize the abrupt boundaries: (\textbf{h}, \textbf{i})~critical distance to the boundary $\delta_c$ for $\mu_B = 0$ (\textbf{h}) and $\mu_B = 0.1$ (\textbf{i}); (\textbf{j})~minimum species abundance at the equilibrium just before crossing the boundary ($x^{\star}_\mathrm{min}$); (\textbf{k})~amount of $\delta$ that must be reversed before ecosystem recovery after collapse--zero indicates immediate recovery, values $>0$ indicate hysteresis. (\textbf{j}) and (\textbf{k}) show results for $\mu_B = 0.1$. Note that in contrast to the competitive and mixed regimes (rows 1-2), increasing diversity in the facilitative regime (row 3) amplifies fold prevalence and community robustness as a function of $\alpha$. Cases where no boundary was reached or where stability is lost before feasibility are infrequent for all $\alpha$ and $n$, and are omitted for clarity.}
+    \label{fig:pervasive_folds}
+\end{figure*}
+ 
+We next apply this numerical boundary-tracking algorithm to HOI communities with $n > 2$ species (Fig.~\ref{fig:pervasive_folds}), systematically varying HOI strength $\alpha$, community size $n$, and the mean of $B_{ijk}$ ($\mu_B$) to probe competitive, mixed, and facilitative HOI regimes (Fig.~\ref{fig:pervasive_folds}\textbf{g}). To isolate the effect of nonlinearity on robustness, we construct random communities that share the same locally stable baseline equilibrium across all $\alpha$ (Methods), perturb growth rates along many directions, and classify the first feasibility boundary encountered as gradual or abrupt. Loss of stability before feasibility occurs very rarely (SI Appendix E) and is omitted for clarity.
+
+For all combinations of $n$ and $\mu_B$, abrupt boundaries become more likely as $\alpha$ increases. When HOI coefficients are drawn symmetrically around zero ($\mu_B = 0$; Fig.~\ref{fig:pervasive_folds}\textbf{c},\textbf{d}), fold boundaries progressively replace transcritical extinctions as the typical mode of coexistence failure at moderate to high $\alpha$. This basic pattern is robust to alternative parameterizations that relax our imposed controls, including the planted equilibrium, convex interpolation between pairwise and HOI terms, and the imposition of baseline stability through strong self-regulation (see SI Sec. 6).
+
+The shift from gradual to abrupt boundaries is greatest when HOI coefficients are biased toward positive (facilitative) values ($\mu_B = 0.1$; Fig.~\ref{fig:pervasive_folds}\textbf{e},\textbf{f}): fold boundaries dominate even at moderate $\alpha$, and the transition to the abrupt regime occurs earlier and more completely than in the mixed case. Strikingly, the effect of biodiversity is reversed in this regime. Whereas increasing community size $n$ reduces fold prevalence in the competitive and neutral regimes -- diversity buffers against abrupt extinctions -- facilitative HOIs cause richer communities to be more prone to tipping-point collapse (Fig.~\ref{fig:pervasive_folds}\textbf{f}). These three qualitative patterns -- the monotonic rise of fold prevalence with $\alpha$, the earlier onset under facilitative HOIs, and the sign-reversal of the diversity effect across $\mu_B$ -- persist when the mean pairwise interaction $\mu_A$ is also varied across competitive, neutral, and facilitative values (SI Sec. 4, Fig. S3).
+
+\begin{figure*}
+    \centering
+    \includegraphics[width=\textwidth]{figures/figure_4.pdf}
+    \caption{\textbf{Fold-mediated collapse is common in published multispecies ecological models.}
+  \textbf{(a)}~Bifurcation diagram for the canonical  plant-pollinator model of Lever et al.~(2014). Polynomial homotopy continuation tracks two equilibrium branches (stable, solid; unstable, dashed) as pollinator mortality $d_A$ increases. The forward sweep (dark red triangles) shows numerical integration endpoints confirming that the realized community state follows the stable branch until a fold bifurcation, where stable and unstable branches meet and annihilate (dark red dashed vertical line). Beyond the fold, the system collapses to a zero-abundance state. The backward sweep (dark blue triangles) shows numerical integration from the collapsed state as the perturbation is gradually reduced, revealing hysteresis.
+  \textbf{(b)}~Fraction of perturbation directions terminating at a fold (abrupt) boundary versus effective nonlinearity strength $\alpha_{\mathrm{eff}}$ across published multispecies ecological models (shapes). Shading indicates species richness. Diversity effects on fold prevalence are model-dependent: fold prevalence increases with richness in some systems (Aguadé-Gorgorió et al., Stouffer \& Bascompte) but decreases in others (Lever et al.). Error bars show interquartile ranges across replicate parameterizations. Despite spanning different interaction types, functional forms, and parameterization schemes, models with stronger effective nonlinearity tend to exhibit a higher prevalence of fold-mediated coexistence loss, matching the pattern from our random HOI ensembles (Fig.~\ref{fig:pervasive_folds}).}
+\label{fig:lever}
+\end{figure*}
+Panels \textbf{h}-\textbf{k} further characterize the abrupt boundaries in the $\mu_B \geq 0$ regime (results for all regimes in SI Appendix E). In the facilitative regime ($\mu_B = 0.1$) richer communities encounter more tipping point boundaries yet are farther from them in parameter space (panel \textbf{i}) -- a tradeoff between likelihood and imminence that is absent in the mixed regime ($\mu_B = 0$; panel \textbf{h}), where $\delta_c$ is only weakly related to $\alpha$ for all community sizes. With increasing $\alpha$, the species that goes extinct at the boundary retains higher abundance immediately before the tipping point is reached (panel \textbf{j}), indicating a more abrupt transition. Additionally, hysteresis strengthens (panel \textbf{k}): the perturbation must be reversed further before coexistence recovers.
+
+When HOI coefficients are instead biased toward negative (competitive) values ($\mu_B = -0.1$; Fig.~\ref{fig:pervasive_folds}\textbf{a},\textbf{b}), fold boundaries are largely suppressed: while abrupt extinctions occur, especially in small communities, coexistence is primarily lost through gradual extinctions even at high $\alpha$. The suppression of folds in this regime raises a natural question: Are there conditions under which fold boundaries are ruled out entirely? A fold bifurcation requires two equilibria to collide and annihilate; if the coexistence equilibrium is globally asymptotically stable on the positive orthant, it is the only interior equilibrium and such collisions are precluded. Using a Lyapunov function \cite{goh_global_1977, allesina_global_2026}, we derive sufficient conditions on $A$ and $B$ that guarantee global stability and thereby rule out fold boundaries (Methods, and SI Sec. 5). This result extends to the HOI setting a problem studied by Cenci and Saavedra~\cite{cenci_structural_2018} for nonlinear pairwise models: when do the equilibrium conditions remain topologically equivalent to the linear case, preserving uniqueness of the coexistence equilibrium (and precluding tipping points)?
+
+\subsection*{Abrupt boundaries in pairwise models with nonlinearities}
+
+We used a random GLV+HOI model to explore whether fold bifurcations become typical when interactions are strongly state-dependent. Effective HOIs arise in any model with nonlinear interactions \cite{letten_mechanistic_2019, abrams_arguments_1983, mustri_accuracy_2025}, with a non-random structure that reflects that underlying interaction mechanism(s). To test whether fold-mediated collapses also occur in such models, we applied our continuation framework to a canonical model of ecosystem collapse in plant-pollinator networks~\cite{lever_sudden_2014}, which features mutualistic interactions mediated by saturating functional responses. These saturating responses generate higher-order effective interactions (SI Sec. 6), providing a concrete, mechanistic instance of the polynomial nonlinearity found in our GLV+HOI model. We implement the model for 10 plants and 10 pollinators following the original parameterization in ~\cite{lever_sudden_2014} and apply our perturbation protocol. Using polynomial homotopy continuation, we map out the bifurcation where the system collapses (Fig.~\ref{fig:lever}\textbf{a}; see SI Sec. 6 for details), confirming that it encounters a fold bifurcation, with hysteresis delimited by the endpoints of the stable and unstable branches, as in Fig.~\ref{fig:hook}\textbf{b}. This example illustrates the power of our homotopy continuation approach to resolve the structure of bifurcations in complex ecological models: the collapse in this model has long been conjectured to be a tipping point, but establishing this formally is challenging using only simulations of the model dynamics~\cite{bascompte_resilience_2023}.
+
+To test whether tipping points are typical across other nonlinear interaction models, we repeated our perturbation protocol on a range of published multispecies models spanning competitive HOIs~\cite{gibbs_when_2024}, consumer-resource systems~\cite{karatayev_potential_2023}, food webs with ecosystem-engineering effects~\cite{mougi_ecosystem_2024}, mixed competitive-facilitative communities~\cite{aguade-gorgorio_taxonomy_2024}, and empirical trophic networks~\cite{stouffer_understanding_2010} (Fig.~\ref{fig:lever}\textbf{b}, and SI Sec. 6). Despite the diverse origins and interaction types in these models, the results are consistent with our random ensembles: models with stronger effective nonlinearity ($\alpha_{\mathrm{eff}}$, SI Sec. 6) exhibit a high fraction of fold-mediated boundaries. In line with our finding that diversity can increase or decrease the prevalence of fold bifurcations depending on the sign of HOIs, the effect of diversity varies across models.
+
+\subsection*{Discussion}
+
+Our results show that higher-order interactions make fold-mediated, tipping-point loss of coexistence a common route to community collapse. We find the same outcome using alternative HOI sampling approaches~\cite{gibbs_when_2024} and in other nonlinear models (SI Sec. 6). Fig.~\ref{fig:lever}\textbf{b} shows that fold-mediated collapse arises in multispecies models spanning mutualistic plant-pollinator networks~\cite{lever_sudden_2014, stouffer_understanding_2010}, consumer-resource systems with nonlinear functional responses~\cite{karatayev_potential_2023}, and communities with adaptive foraging~\cite{mougi_ecosystem_2024} or multiple interaction types~\cite{aguade-gorgorio_taxonomy_2024}. This cross-model comparison suggests that tipping points are a widespread consequence of nonlinear state-dependent interactions in complex communities.
+
+We further found that the mean HOI effect controls important features of the transition from gradual to abrupt extinctions. HOIs that are facilitative on average make fold boundaries dominant even at weak nonlinearity, whereas competitive HOIs largely suppress them. Tipping points in ecological models have often been associated with positive feedback loops, such as in mutualistic systems \cite{scheffer_catastrophic_2001, rietkerk_self-organized_2004}. The facilitative HOI regime mirrors this type of mechanism, because HOIs tend to weaken antagonistic pairwise effects (and amplify mutualistic ones). HOIs contribute more strongly to net growth rates when most species are relatively abundant, while pairwise effects should dominate when abundances are lower. This creates the conditions for multistability, driven by a diffuse positive feedback loop between abundances and growth rates -- HOIs can rescue the community from extinctions driven by pairwise interactions, but only once abundances are sufficiently high. Consistent with this interpretation, we found that HOIs simultaneously increase the prevalence of tipping points and the distance to a coexistence boundary (Fig.~\ref{fig:pervasive_folds}\textbf{i}), postponing extinctions compared to the pairwise baseline (consistent with experimental evidence \cite{wang_higher-order_2026}). Multistability, in turn, creates the conditions for a fold bifurcation (stable and unstable equilibria colliding and annihilating).  However, this difference in tipping-point prevalence is driven by subtle changes in the mean HOI effect (Fig.~\ref{fig:pervasive_folds}\textbf{g}). Even in the facilitative regime, many individual HOIs are negative, suggesting that specific interaction structures are not necessary for tipping points to become common. Furthermore, restricting interactions to be only negative (purely competitive, SI Sec. 4) does not change the increased prevalence of folds with $\alpha$.
+ 
+Our analysis focused throughout on the focal equilibrium that is continuous with the unique coexistence equilibrium in the pairwise GLV model, but HOIs generically create additional coexistence states~\cite{aladwani_is_2019, aladwani_ecological_2020, gibbs_coexistence_2022}. This implies that a complete picture of community robustness must account for both the size and shape of the local feasibility domain around each equilibrium, but also the total number and distribution of equilibria. Accounting for this global picture, nonlinearities might make any particular community more prone to tipping abruptly, but increase the chances that the community shifts to another configuration with high richness. 
+
+We also focused on loss of equilibrium feasibility; however, coexistence can alternatively be lost via instability, for example mediated by delayed feedbacks~\cite{lever_five_2023} or explicit time delays~\cite{yang_catalysts_2026}. Characterizing when each route dominates is an important open question~\cite{lechon-alonso_robust_2026}.
+
+Our analysis leveraged polynomial homotopy continuation to navigate the nonlinear feasibility domains that arise in large ecological communities with nonlinear and nonpairwise interactions. This numerical technique has significant potential to extend the structural-stability perspective beyond pairwise models and help unify our understanding of the regime shifts that occur in complex ecological models. We may also gain a deeper understanding of these systems by looking across fields: ``explosive'' discontinuous transitions have been reported in higher-order network models of contagion~\cite{ferraz_de_arruda_contagion_2024, iacopini_simplicial_2019}, synchronization~\cite{millan_explosive_2020}, and social dynamics~\cite{neuhauser_multibody_2020}, typically derived from mean-field reductions. Whether these share a formal connection with the species-resolved fold bifurcations we identify is an intriguing parallel that warrants further investigation.
+ 
+Taken together, our findings show that HOIs add more than quantitative corrections to pairwise coexistence theory. They qualitatively transform the geometry of coexistence, replacing gradual erosion of coexistence with abrupt hysteretic collapse as the generic mode of community failure. This perspective provides a missing link between structural-stability theory, which quantifies how large the safe operating space is, and critical-transitions theory, which determines what happens when its boundary is crossed. By mapping how the strength and sign of nonlinear interactions govern tipping-point prevalence across diverse community types, our results establish a baseline expectation for when abrupt ecosystem collapse may become typical.  
+
+\section*{Materials and methods}
+ 
+\subsection*{Polynomial Homotopy Continuation}
+Following Eq.~\eqref{eq:glv_hoi} we define the coexistence equilibrium as any real solution $\mathbf x^\star \in \mathbb{R}^n_{>0}$ of
+\begin{equation}\label{eq:glv_hoi_equilibrium}
+r_i + (1-\alpha)\sum_{j=1}^n A_{ij}x^\star_j
+\;+\;\alpha\sum_{j,k=1}^n B_{jki}\,x^\star_j x^\star_k \;=\;0,
+\end{equation}
+for $ 1\leq i\leq n$. When we perturb the growth-rate as $\mathbf r_0+\delta \mathbf u$ (see Eq.~\eqref{eq:pert_growth}) we obtain from \eqref{eq:glv_hoi_equilibrium} the following system of polynomial equations depending on both $\mathbf x$ and~$\delta$:
+$$
+H_i(\mathbf x,\delta) = (r^0_i + \delta u_i) +(1-\alpha)\sum_{j} A_{ij}\,x_j + \alpha\sum_{j,k} B_{ijk}\,x_jx_k,
+$$
+The coexistence equilibrium $\mathbf x^\star$ corresponding to $H(\mathbf x, \delta) = 0$ depends continuously on $\delta$. Therefore, if we move $\delta$ in a continuous way, $\mathbf x^\star$  will move along. This observation is the basis of polynomial homotopy continuation~\cite{sommese_numerical_2005}. 
+
+
+If $\frac{\mathrm d}{\mathrm d \mathbf x} H$ is invertible at $(\mathbf x, \delta)$, the implicit function theorem implies that $\mathbf x = \mathbf x(\delta)$ is locally a differentiable function of $\delta$. Implicit differentiation yields
+\begin{equation}\label{ODE}
+\frac{\mathrm d H}{\mathrm d \mathbf x}\,  \dot{\mathbf x} \;+\; \frac{\mathrm d H}{\mathrm d \mathbf \delta }=0.
+\end{equation}
+We always have the initial equilibrium $\mathbf x^\star = \mathbf 1$ corresponding to $\delta = 0$, by construction (see Parameter sampling protocol, below). Together with Eq.~\eqref{ODE} this defines an initial value problem, which can be solved using numerical integration. All of this is implemented to be used out-of-the-box in the software \texttt{HomotopyContinuation.jl} \cite{breiding_homotopycontinuationjl_2018}, which we use in our work.
+
+ \subsection*{Parameter sampling protocol}
+
+To isolate the effect of HOI strength $\alpha$ on the geometry of feasibility boundaries, we construct random communities that share a common baseline coexistence state across all $\alpha$. Off-diagonal pairwise entries are drawn as $A^0_{ij} \sim \mathcal{N}(\mu_A, n^{-1})$ and HOI entries as $B^0_{ijk} \sim \mathcal{N}(\mu_B, n^{-2})$, where the variance scalings ensure that both pairwise row sums and HOI slice sums contribute $O(1)$ to per-capita growth rates as community size grows. Diagonal entries are then set so that row sums of $A$ and slice sums of $B$ each equal $-1$, planting a coexistence equilibrium $\mathbf{x}^\star = \mathbf{1}$ corresponding to $\mathbf{r} = \mathbf{1}$ for every $\alpha \in [0,1]$. Local stability is guaranteed by rescaling each matrix by its symmetrised spectral radius and subtracting a unit diagonal, so that the symmetrised pairwise and HOI sectors ($S_A$ and $S_{\hat{B}}$) are each negative definite. Because the Jacobian at $\mathbf{x}^\star$ is a convex combination of these two sectors, Hurwitz stability holds for all $\alpha$. For each community realisation, the same bank of perturbation directions $\{\mathbf{u}_k\}$, sampled uniformly on the unit sphere, is used across all $\alpha$, so that changes in boundary-type frequency reflect reshaping of the feasibility domain rather than a changing reference state or perturbation set. See SI Sec. 4 for details.
+
+\subsection*{Boundary detection with homotopy continuation}
+
+For each perturbation direction $\mathbf{u}$, we track the coexistence equilibrium from $\delta = 0$ to $\delta_{\max}$ using coefficient-parameter homotopy continuation implemented in \texttt{HomotopyContinuation.jl}~\cite{breiding_homotopycontinuationjl_2018}. At each continuation step we monitor the tracked solution for three boundary events: (i)~a gradual boundary, where the minimum species abundance drops below $x_{tol} = 10^{-12}$, signalling a transcritical bifurcation; (ii)~an abrupt boundary, where the tracker terminates before any component reaches $x_{tol}$, signalling a fold bifurcation at which the Jacobian $\frac{\mathrm{d}H}{\mathrm{d}\mathbf{x}}$ becomes singular and the real equilibrium branch ceases to exist; and (iii)~an unstable boundary, where the leading eigenvalue of the community Jacobian $J = D(\mathbf{x}^\star)\,J_F$ crosses $\lambda_{\mathrm{tol}} = 10^{-9}$ while all abundances remain above $x_{tol}$. Along each direction, we record the type of the boundary and the value $\delta_c$. Complete details on the algorithmic approach are given in SI Sec. 2.
+
+\subsection*{Computing the feasibility boundaries analytically for $n = 2$}
+ 
+To compute the gradual and abrupt boundary analytically, we substitute  in  \eqref{eq:glv_hoi_equilibrium} $ A_{ij}' = (1-\alpha) A_{ij}$ and $B_{jki}'=\alpha B_{jki}$, and  obtain polynomials
+$$f_i(\mathbf x, \mathbf r, \mathbf A', \mathbf B') = r_i +\sum_{j=1}^n A_{ij}'x_j
+\;+\;\sum_{j,k=1}^n B_{jki}'\,x_j x_k.$$
+The gradual boundary consists of those parameters $\mathbf r, \mathbf A', \mathbf B'$, such that there exists an $\mathbf x^\star$ with
+\begin{align*}
+    &x_1^\star \cdot x_2^\star \cdots x_n^\star =0\quad \text{and} \\
+    &f_1(\mathbf x^\star , \mathbf r, \mathbf A', \mathbf B') = \cdots = f_n(\mathbf x^\star , \mathbf r, \mathbf A', \mathbf B') = 0 \, .
+\end{align*}
+The first condition means that at least one entry of $\mathbf x^\star$ is zero, while the second line implies that $\mathbf x^\star$ is a solution of \eqref{eq:glv_hoi_equilibrium}. The Tarski-Seidenberg theorem \cite[Theorem~4.17]{michalek2021invitation} implies that the gradual boundary is a semialgebraic set (a set defined by polynomial equations and inequalities). While computing all equations and inequalities of a semialgebraic set is a challenging problem, computing equations is easier, using elimination theory~\cite[Chapter 3]{cox_ideals_2018}.
+The polynomials above generate a polynomial ideal \cite{cox_ideals_2018}
+$$I_\text{gradual} = \langle x_1 \cdot x_2 \cdots x_n, f_1,\cdots,f_n\rangle.$$
+Eliminating $\mathbf x$ from the ideal $I_\text{gradual}$ and substituting back $ A_{ij}' = (1-\alpha) A_{ij}$ and $B_{jki}'=\alpha B_{jki}$ we obtain an ideal $J_\text{gradual}$ generated by polynomials in $\mathbf r, \alpha, \mathbf A, \mathbf B$, that define the Zariski closure of the gradual boundary (i.e., the smallest algebraic variety -- a set defined as the vanishing locus of finitely many polynomials -- containing the gradual boundary).
+We find that $J_\text{gradual}$ is generated by a single polynomial $\Delta_\text{gradual}$ (see SI Sec. 3).
+ 
+Similarly, for the abrupt boundary we can eliminate $\mathbf x$ from the ideal
+$$I_\text{abrupt} = \langle \det \mathrm{Jac}, f_1,\cdots,f_n\rangle,$$
+where $\mathrm{Jac}$ denotes the Jacobian matrix of the polynomials in \eqref{eq:glv_hoi_equilibrium}.
+Eventually, we obtain the ideal $J_\text{abrupt}$ generated by a single polynomial $\Delta_\text{abrupt}$ in  $\mathbf r, \alpha, \mathbf A, \mathbf B$, that define the Zariski closure of the abrupt boundary (see SI Sec. 3). This polynomial has 17,586 terms, underscoring the complexity of elimination. Recently, methods from numerical algebraic geometry have emerged to tackle elimination ideals \cite{breiding_elimination_2026} which are infeasible to compute using exact computer algebra.
+
+The code to compute $\Delta_\text{gradual}$ and $\Delta_\text{abrupt}$ in \texttt{Macaulay2} \cite{M2} is in SI Sec. 3.
+
+\subsection*{Global stability rules out fold bifurcations}
+A fold bifurcation requires two equilibria to collide and annihilate; if the coexistence equilibrium $\mathbf{x}^\star$ is globally asymptotically stable on the positive orthant $\mathbb{R}^n_{>0}$, it is the only interior equilibrium and such collisions are precluded. We derive sufficient conditions for global stability using Goh's Lyapunov function~\cite{goh_global_1977, hofbauer_evolutionary_1998, allesina_global_2026}
+%
+\begin{equation}
+V(\mathbf{x}) = \sum_{i=1}^{n}\bigl(x_i - x_i^\star - x_i^\star \ln(x_i / x_i^\star)\bigr),
+\end{equation}
+%
+which is non-negative on $\mathbb{R}^n_{>0}$ and vanishes only at $\mathbf{x}^\star$. Using $\dot{x}_i = x_i f_i(\mathbf{x})$ and $f(\mathbf{x}^\star) = 0$, together with the path integral $f(\mathbf{x}) - f(\mathbf{x}^\star) = [\int_0^1 \nabla f(\mathbf{x}^\star + t(\mathbf{x} - \mathbf{x}^\star))\,dt](\mathbf{x} - \mathbf{x}^\star)$, its derivative along trajectories takes the quadratic form
+%
+\begin{equation}
+\dot{V} \;=\; (\mathbf{x}-\mathbf{x}^\star)^\top\!\left[(1-\alpha)\,S_A + \alpha\sum_{k=1}^{n}\tfrac{x_k + x_k^\star}{2}\,S_k\right]\!(\mathbf{x}-\mathbf{x}^\star),
+\end{equation}
+%
+where $S_A = (A + A^\top)/2$ and $(S_k)_{ij} = (B_{ijk} + B_{jik})/2$ (assuming   $B_{ijk} = B_{ikj}$). Because each $(x_k + x_k^\star)/2 > 0$ on $\mathbb{R}^n_{>0}$, the bracketed matrix is a conic combination of $S_A$ and the slice matrices $\{S_k\}_{k=1}^n$. A sufficient condition for $\dot{V} < 0$ everywhere, and hence for global stability, is therefore that $S_A \prec 0$ and $S_k \prec 0$ for every $k = 1, \ldots, n$ -- the slice-wise negative-definiteness condition. An equivalent condition arises in the theory of nonlinear complementarity problems via strict monotonicity of $F = -f$~\cite{wang_nonlinear_2010}.
+
+The slice-wise condition is strictly stronger than $S_{\hat{B}} = \sum_k S_k \prec 0$, which is enforced by our sampling protocol. The gap between the slice-wise and aggregate conditions delineates the regime in which fold bifurcations can arise (see SI Sec. 5).
+
+\bibliographystyle{apsrev4-2}
+\bibliography{references}
+
+\vspace{2pt}
+\noindent \textbf{Acknowledgments:}
+P.L.A.\ acknowledges helpful discussions 
+with E. Alastrue de Asenjo, K. Lee, S. Pawar, S. Kuhen, S. Sheik, M. Tikhonov and T. Wootton.
+
+\noindent \textbf{Funding:}
+P.B.\ was supported by DFG, German Research Foundation – Projektnummer 445466444
+
+\enlargethispage{4\baselineskip}
+\noindent \textbf{Author contributions:}
+P.L.A.\ designed the study and performed the research, with advice from Z.M.\ and M.P.; P.L.A.\ wrote the manuscript, with advice from Z.M.\ and M.P.; P.L.A., P.B., and A.L.\ developed the code; P.L.A, Z.M, P.B.\ and S.A.\ performed the derivations. All authors contributed to the mathematical derivations, the implementation of the code, edited the manuscript, and discussed and interpreted the results.
+
+\noindent \textbf{Competing interests:}
+The authors declare no competing interests.
+
+\noindent \textbf{Materials \& Correspondence}
+All materials and correspondence requests should be addressed to \texttt{plechon@uchicago.edu} or \texttt{zachary.miller@yale.edu}
+
+
+\end{document}
