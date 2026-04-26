@@ -1,0 +1,34 @@
+# macOS
+.DS_Store
+
+# Editors
+.vscode/
+.idea/
+*.swp
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.ipynb_checkpoints/
+
+# Julia
+*.jl.cov
+*.jl.*.cov
+*.jl.mem
+/deps/build.log
+
+# Build / cache outputs from figure scripts
+figures/cache/
+figures/__pycache__/
+figures/pdffiles/
+figures/data/
+figures/boundary_data/
+figures/panel_candidates/
+figures/figures/
+
+# Cluster runtime artifacts
+cluster/logs/
+cluster/chunks/
+cluster/manifests/
