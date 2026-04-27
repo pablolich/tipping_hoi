@@ -6,7 +6,6 @@ include(joinpath(@__DIR__, "..", "other_models", "karatayev_model.jl"))
 include(joinpath(@__DIR__, "..", "other_models", "aguade_model.jl"))
 include(joinpath(@__DIR__, "..", "other_models", "mougi_model.jl"))
 include(joinpath(@__DIR__, "..", "other_models", "stouffer_model.jl"))
-include(joinpath(@__DIR__, "..", "other_models", "marsland_model.jl"))
 
 """
 Single point of truth for the mathematical equivalence between model types.
@@ -75,11 +74,6 @@ function build_hc_system(model::Dict)
     mode = get(model, "dynamics_mode", "standard")
     if mode == "unique_equilibrium" || mode == "all_negative"
         return _build_hc_system_unique_equilibrium(model)
-    elseif mode == "standard" || mode == "balanced" ||
-       mode == "balanced_stable" || mode == "constrained_r"
-        # These banks differ only in how A/B/r are sampled; boundary/post/
-        # backtrack still use the same canonical GLV+HOI equations.
-        return _build_hc_system_standard(model)
     elseif mode == "elegant"
         return _build_hc_system_elegant(model)
     elseif mode == "gibbs"
@@ -94,41 +88,9 @@ function build_hc_system(model::Dict)
         return _build_hc_system_mougi(model)
     elseif mode == "stouffer"
         return _build_hc_system_stouffer(model)
-    elseif mode == "marsland"
-        return _build_hc_system_marsland(model)
     else
         error("Unknown dynamics_mode: $mode")
     end
-end
-
-function _build_hc_system_standard(model)
-    n          = Int(model["n"])
-    A          = nested_to_matrix(model["A"])
-    B          = nested_to_tensor3(model["B"])
-    U          = nested_to_matrix(model["U"])
-    baseline_r = Float64.(model["r"])
-    x0         = haskey(model, "x_star") ? Float64.(model["x_star"]) : ones(n)
-    A_fac      = lu(A)
-    x_base_lin = -(A_fac \ baseline_r)
-
-    make_workspace = function(alpha::Float64)
-        abs(alpha) <= SCAN_LINEAR_ALPHA_TOL && return nothing
-        A_eff, B_eff = prescale(A, B, alpha, false)
-        syst, _ = build_system(baseline_r, A_eff, B_eff)
-        return ScanWorkspace(syst, n)
-    end
-
-    alpha_grid = haskey(model, "alpha_grid") ?
-        collect(Float64, model["alpha_grid"]) :
-        collect(Float64, SCAN_ALPHA_GRID)
-
-    return (
-        n=n, n_dirs=Int(model["n_dirs"]),
-        alpha_grid=alpha_grid,
-        x0=x0, baseline_r=baseline_r, U=U,
-        make_workspace=make_workspace,
-        linear_fallback=(A=A, A_fac=A_fac, x_base_linear=x_base_lin),
-    )
 end
 
 function _build_hc_system_elegant(model)
@@ -283,35 +245,6 @@ function _build_hc_system_stouffer(model)
 
     make_workspace = function(_::Float64)
         syst, _ = build_stouffer_cleared_system(p)
-        return ScanWorkspace(syst, n)
-    end
-
-    return (
-        n=n, n_dirs=Int(model["n_dirs"]),
-        alpha_grid=[alpha_eff],
-        x0=x0, baseline_r=baseline_r, U=U,
-        make_workspace=make_workspace,
-        linear_fallback=nothing,
-    )
-end
-
-# Marsland (2019) MiCRM — polynomialised step-6 system.
-# State = N (consumers only, length n_C), after R has been eliminated
-# analytically via Cramer's rule.  Perturbation parameters are the
-# maintenance costs m_i (also length n_C), so that the boundary scan
-# shifts m -> m + dr along random unit rays in consumer-cost space.
-# The polynomial equations live in
-# `pipeline_marsland_hc/src/hc_system.jl::build_marsland_cleared_system`.
-function _build_hc_system_marsland(model)
-    p          = marsland_params_from_payload(model)
-    n          = marsland_n_species(p)            # = p.n_C
-    x0         = Float64.(model["x_star"])        # length n_C
-    alpha_eff  = Float64(get(model, "alpha_eff", 0.0))
-    baseline_r = Float64.(model["r"])             # length n_C, = p.m
-    U          = nested_to_matrix(model["U"])     # n_C × n_dirs
-
-    make_workspace = function(_::Float64)
-        syst, _ = build_marsland_cleared_system(p)
         return ScanWorkspace(syst, n)
     end
 

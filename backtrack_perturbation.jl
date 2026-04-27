@@ -18,7 +18,6 @@ using SciMLBase
 include(joinpath(@__DIR__, "pipeline_config.jl"))
 include(joinpath(@__DIR__, "model_store_utils.jl"))
 include(joinpath(@__DIR__, "utils", "math_utils.jl"))
-include(joinpath(@__DIR__, "utils", "equilibrium_utils.jl"))
 include(joinpath(@__DIR__, "utils", "json_utils.jl"))
 include(joinpath(@__DIR__, "utils", "hc_param_utils.jl"))
 include(joinpath(@__DIR__, "utils", "glvhoi_utils.jl"))
@@ -79,7 +78,6 @@ function build_backtrack_cfg()
         "eps_seed_extinct"   => BACK_EPS_SEED_EXTINCT === nothing ? 10.0 * ODE_EPS_EXTINCT : Float64(BACK_EPS_SEED_EXTINCT),
         "return_dist_abs"    => 1e-3,
         "return_dist_rel"    => 1e-3,
-        "snap_tie_tol"       => SNAP_TIE_TOL,
     )
 end
 

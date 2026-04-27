@@ -145,11 +145,11 @@ end
     B_eff = zeros(Float64, 2, 2, 2)
     U2    = Matrix{Float64}([1.0 0.0; 0.0 1.0])
     dyn   = make_dyn_cfg()
-    seq   = build_seq_cfg()
     back  = build_backtrack_cfg()
+    cache = BacktrackCache()
 
     call = (row) -> process_direction_row(
-        row, 1, 0.0, 1, r0, A_eff, B_eff, U2, dyn, seq, back
+        row, 1, 0.0, 1, r0, A_eff, B_eff, U2, dyn, back, cache
     )
 
     # 2a: invalid ray_id (out of bounds)
@@ -267,8 +267,8 @@ end
     B_eff = zeros(Float64, 2, 2, 2)
     U2    = Matrix{Float64}([1.0 0.0; 0.0 1.0])
     dyn   = make_dyn_cfg()
-    seq   = build_seq_cfg()
     back  = build_backtrack_cfg()
+    cache = BacktrackCache()
 
     # Equilibrium at p_start=[0.5,0]: x_act = [19/15, 16/15]
     row = Dict{String,Any}(
@@ -279,7 +279,7 @@ end
         "delta_post"          => 0.5,
         "x_postboundary_snap" => [19.0/15, 16.0/15],
     )
-    result = process_direction_row(row, 1, 0.0, 1, r0, A_eff, B_eff, U2, dyn, seq, back)
+    result = process_direction_row(row, 1, 0.0, 1, r0, A_eff, B_eff, U2, dyn, back, cache)
 
     @test result["hc_event"]    == "success"
     @test result["ode_ran"]     == false
@@ -293,8 +293,8 @@ end
     B_eff_u = zeros(Float64, 2, 2, 2)
     U_u     = reshape([1.0, 0.0], 2, 1)   # 2×1 matrix, single direction
     dyn     = make_dyn_cfg()
-    seq     = build_seq_cfg()
     back    = build_backtrack_cfg()
+    cache   = BacktrackCache()
 
     row_u = Dict{String,Any}(
         "ray_id"              => 1,
@@ -304,7 +304,7 @@ end
         "delta_post"          => 0.1,
         "x_postboundary_snap" => [1.0, 1.0],
     )
-    result_u = process_direction_row(row_u, 1, 0.0, 1, r0_u, A_eff_u, B_eff_u, U_u, dyn, seq, back)
+    result_u = process_direction_row(row_u, 1, 0.0, 1, r0_u, A_eff_u, B_eff_u, U_u, dyn, back, cache)
 
     @test result_u["hc_event"] == "unstable"
     @test result_u["ode_ran"]  == true
@@ -320,8 +320,8 @@ end
     B_eff_i = zeros(Float64, 3, 3, 3)
     U_i     = reshape([1/√2, 1/√2, 0.0], 3, 1)   # 3×1, direction [1/√2,1/√2,0]
     dyn     = make_dyn_cfg()
-    seq     = build_seq_cfg()
     back    = build_backtrack_cfg()
+    cache   = BacktrackCache()
 
     x_post_i = [19.0/15, 16.0/15, 0.0]   # species 3 extinct
     row_i = Dict{String,Any}(
@@ -332,7 +332,7 @@ end
         "delta_post"          => 0.5,
         "x_postboundary_snap" => x_post_i,
     )
-    result_i = process_direction_row(row_i, 1, 0.0, 1, r0_i, A_eff_i, B_eff_i, U_i, dyn, seq, back)
+    result_i = process_direction_row(row_i, 1, 0.0, 1, r0_i, A_eff_i, B_eff_i, U_i, dyn, back, cache)
 
     @test result_i["hc_event"]         == "invasion"
     @test result_i["ode_ran"]          == true
@@ -359,7 +359,7 @@ end
         # U: 2 rows × 1 col  (direction [1,0])
         "U"          => [[1.0], [0.0]],
         "x_star"     => [1.0, 1.0],
-        "dynamics_mode" => "standard",
+        "dynamics_mode" => "elegant",
         "post_dynamics_results" => [
             Dict{String,Any}(
                 "alpha_idx" => 1,
@@ -379,10 +379,9 @@ end
     )
 
     dyn  = make_dyn_cfg()
-    seq  = build_seq_cfg()
     back = build_backtrack_cfg()
 
-    output = backtrack_model(model, dyn, seq, back)
+    output = backtrack_model(model, dyn, back)
 
     # Top-level keys present
     @test haskey(output, "backtrack_results")

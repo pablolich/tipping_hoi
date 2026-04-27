@@ -330,18 +330,15 @@ end
 # JSON bank dispatch
 # --------------------------------------------------------------------------
 
-const _GLVHOI_MODES = (
-    "standard", "elegant", "balanced", "balanced_stable",
-    "constrained_r", "unique_equilibrium", "all_negative",
-)
+const _GLVHOI_MODES = ("elegant", "unique_equilibrium", "all_negative")
 
 """
     build_per_capita_rates(bank) -> (f, x_star, n)
 
 Reconstruct the ORIGINAL per-capita rate `f: x -> f_vec` for a bank JSON
 dict whose `dynamics_mode` is one of "gibbs", "lever", "karatayev",
-"aguade", "mougi", "stouffer".  Errors on Marsland, on the GLV+HOI modes
-(use `build_per_capita_rates_for_alpha` instead), and on unknown modes.
+"aguade", "mougi", "stouffer".  Errors on the GLV+HOI modes
+(use `build_per_capita_rates_for_alpha` instead) and on unknown modes.
 """
 function build_per_capita_rates(bank::AbstractDict)
     mode = String(get(bank, "dynamics_mode", ""))
@@ -376,8 +373,6 @@ function build_per_capita_rates(bank::AbstractDict)
         p = stouffer_params_from_payload(bank)
         f = x -> stouffer_per_capita_rates_ad(p, x)
         return (f, x_star, n)
-    elseif mode == "marsland"
-        error("build_per_capita_rates: Marsland is skipped by design (dR≠R·f).")
     elseif mode in _GLVHOI_MODES
         error("build_per_capita_rates: mode=$mode needs an α; use build_per_capita_rates_for_alpha.")
     else

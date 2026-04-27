@@ -2,8 +2,8 @@
 # Extracted from post_boundary_dynamics.jl (random_direction, apply_signed_nudge,
 # integrate_and_snap) and backtrack_perturbation.jl (restrict_params).
 #
-# Must be included after: pipeline_config.jl, math_utils.jl, equilibrium_utils.jl,
-# glvhoi_utils.jl, dynamics_cfg_utils.jl.
+# Must be included after: pipeline_config.jl, math_utils.jl, glvhoi_utils.jl,
+# dynamics_cfg_utils.jl.
 # Caller must provide: using DifferentialEquations, SciMLBase (and Random for randn).
 
 function make_extinction_cb(eps_extinct::Real)

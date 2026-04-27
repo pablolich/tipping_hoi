@@ -2,15 +2,12 @@
 # Edit values here instead of passing command-line flags.
 
 # ─── 1. Bank generation (generate_bank.jl) ──────────────────────────────────
-const DYNAMICS_MODE      = "elegant"  # "standard", "balanced", "balanced_stable", "constrained_r", "elegant", "unique_equilibrium", "all_negative", or "gibbs"
+const DYNAMICS_MODE      = "elegant"  # "elegant", "unique_equilibrium", or "all_negative"
 const BANK_BASE_SEED     = 2
 const BANK_SIGMA_A       = 1.0
-const BANK_SIGMA_B       = 1.0          # σ_B for balanced mode (B entries ~ N(0, σ_B²/n²))
+const BANK_SIGMA_B       = 1.0          # σ_B for all_negative mode (B entries ~ N(0, σ_B²/n²))
 const BANK_MU_A          = parse(Float64, get(ENV, "BANK_MU_A", "0.0"))   # mean of A0 entries; override via env var
 const BANK_MU_B          = parse(Float64, get(ENV, "BANK_MU_B", "0.0"))   # mean of B0 entries; override via env var
-const BANK_SAFETY        = 1.2          # multiplicative shift margin for balanced mode
-const BANK_ENFORCE_R_POS = true
-const BANK_B_SAMPLER     = get(ENV, "BANK_B_SAMPLER", "dirichlet")   # "dirichlet" or "signed_flip"; override via env var
 const BANK_SAFETY_UE     = 1.2          # safety margin for unique_equilibrium negdef diagonal shift
 
 # ─── 2. HC solver — shared by boundary_scan.jl and backtrack_perturbation.jl ─
@@ -58,30 +55,6 @@ const BACK_LAMBDA_TOL       = 1e-9
 const BACK_INVASION_TOL     = 1e-10
 const BACK_EPS_SEED_EXTINCT = nothing   # defaults to 10 * ODE_EPS_EXTINCT
 
-# ─── 7. Equilibrium snapping — shared by post_boundary_dynamics.jl and backtrack_perturbation.jl ─
+# ─── 7. Zero-clamp tolerances — used by integrate_and_snap (Stage 3) ────────
 const SNAP_TOL_POS    = 1e-9
 const SNAP_TOL_NEG    = 1e-9
-const SNAP_IMAG_TOL   = 1e-8
-const SNAP_LAMBDA_TOL = 1e-9
-const SNAP_TIE_TOL    = 1e-10
-const SNAP_DIST_ABS   = 1e-6
-const SNAP_DIST_REL   = 1e-3
-const SNAP_SEP_RATIO  = 0.5
-const SNAP_F_ABS      = 1e-5
-const SNAP_F_REL      = ODE_RELTOL
-
-# Newton polishing (stages 3 & 4 equilibrium snapping)
-const NEWTON_MAX_ITER = 20
-const NEWTON_FTOL     = 1e-12
-const NEWTON_XTOL     = 1e-12
-
-# ─── 8. Sequential pruning (sequential_pruning.jl) ─────────────────────────
-const SEQ_MAX_PERT       = SCAN_MAX_PERT        # δ_max cap
-const SEQ_LAMBDA_TOL     = SCAN_LAMBDA_TOL      # λ threshold for :unstable
-const SEQ_MAX_STEP_RATIO = BACK_MAX_STEP_RATIO  # HC init step size ratio
-const SEQ_MAX_ITERS      = 20                   # failsafe max pruning iterations
-const SEQ_OUTPUT_SUBDIR  = "sequential_pruning" # subfolder under model_runs/<run_dir>/
-
-# ─── 9. Degraded bank generation (generate_degraded_bank.jl) ────────────────
-const DEGRADED_INCLUDE_STATUSES = ["fold", "success"]   # statuses to include in degraded bank
-const DEGRADED_OUTPUT_SUFFIX    = "_degraded"            # appended to run_dir for default output name

@@ -17,10 +17,7 @@ using JSON3
 include(joinpath(@__DIR__, "utils", "alpha_eff_taylor.jl"))
 
 const SCALAR_MODES = ("gibbs", "lever", "karatayev", "aguade", "mougi", "stouffer")
-const GRID_MODES = (
-    "standard", "elegant", "balanced", "balanced_stable",
-    "constrained_r", "unique_equilibrium", "all_negative",
-)
+const GRID_MODES = ("elegant", "unique_equilibrium", "all_negative")
 
 function usage()
     println("""
@@ -30,7 +27,7 @@ Augments each bank JSON with:
   alpha_eff_taylor, P_taylor, Q_taylor                       (scalar modes)
   alpha_eff_taylor_grid, P_taylor_grid, Q_taylor_grid        (GLV+HOI α-grid modes)
 
-Skips marsland banks. Existing alpha_eff field is never touched.
+Existing alpha_eff field is never touched.
 """)
 end
 
@@ -87,9 +84,7 @@ function process_bank!(bank::Dict{String,Any})
     haskey(bank, "x_star") || return (:skipped, "no x_star")
     x_star = Float64.(bank["x_star"])
 
-    if mode == "marsland"
-        return (:skipped, "marsland (skipped by design)")
-    elseif mode in SCALAR_MODES
+    if mode in SCALAR_MODES
         f, _, _ = build_per_capita_rates(bank)
         out = compute_alpha_eff_taylor(f, x_star)
         (isfinite(out.alpha_eff_taylor) && isfinite(out.P) && isfinite(out.Q)) ||

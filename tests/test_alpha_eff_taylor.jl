@@ -232,12 +232,6 @@ end
 end
 
 @testset "dispatch errors" begin
-    bad_bank = Dict{String,Any}(
-        "dynamics_mode" => "marsland",
-        "x_star" => [1.0],
-    )
-    @test_throws ErrorException build_per_capita_rates(bad_bank)
-
     glvhoi_bank = Dict{String,Any}(
         "dynamics_mode" => "elegant",
         "x_star" => [1.0],

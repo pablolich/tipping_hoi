@@ -14,7 +14,6 @@ using SciMLBase
 include(joinpath(@__DIR__, "pipeline_config.jl"))
 include(joinpath(@__DIR__, "model_store_utils.jl"))
 include(joinpath(@__DIR__, "utils", "math_utils.jl"))
-include(joinpath(@__DIR__, "utils", "equilibrium_utils.jl"))
 include(joinpath(@__DIR__, "utils", "json_utils.jl"))
 include(joinpath(@__DIR__, "utils", "glvhoi_utils.jl"))
 include(joinpath(@__DIR__, "utils", "dynamics_cfg_utils.jl"))

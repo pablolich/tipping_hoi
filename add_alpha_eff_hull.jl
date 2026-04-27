@@ -16,7 +16,7 @@
 # scalar `alpha_eff_hull`; GLV+HOI grid banks (standard/elegant/balanced/…)
 # get an `alpha_eff_hull_grid` of length len(alpha_grid), with f rebuilt per
 # α via build_per_capita_rates_for_alpha and hull vertices drawn from the
-# per-α scan entry's x_preboundary points.  Marsland is skipped by design.
+# per-α scan entry's x_preboundary points.
 # Existing `alpha_eff` is never touched.
 #
 # Usage:
@@ -31,11 +31,7 @@ using Statistics
 include(joinpath(@__DIR__, "utils", "alpha_eff_taylor.jl"))
 
 const SCALAR_ALPHA_MODES = ("gibbs", "lever", "karatayev", "aguade", "mougi", "stouffer")
-const GLVHOI_GRID_MODES  = (
-    "standard", "elegant", "balanced", "balanced_stable",
-    "constrained_r", "unique_equilibrium", "all_negative",
-)
-const SKIPPED_MODES      = ("marsland",)
+const GLVHOI_GRID_MODES  = ("elegant", "unique_equilibrium", "all_negative")
 
 function usage()
     println("""
@@ -53,8 +49,6 @@ Writes per-bank fields:
     alpha_eff_hull_R2_grid
     alpha_eff_hull_n_vertices_grid
     alpha_eff_hull_M, _seed, _alpha_dir
-
-Skipped: $(SKIPPED_MODES).
 """)
 end
 
@@ -282,7 +276,6 @@ end
 function process_bank!(bank::Dict{String,Any}, M::Int, seed::Int, α_dir::Real)
     mode = String(get(bank, "dynamics_mode", ""))
     isempty(mode) && return (:skipped, "no dynamics_mode")
-    mode in SKIPPED_MODES && return (:skipped, "mode=$mode (skipped by design)")
     if mode in GLVHOI_GRID_MODES
         return process_bank_grid!(bank, M, seed, α_dir)
     end
