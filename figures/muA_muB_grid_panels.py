@@ -14,7 +14,7 @@ Boundary scan output is required: each model JSON must already contain
 
 Usage:
     python figures/muA_muB_grid_panels.py \
-        --input-root model_runs \
+        --input-root data/example_runs \
         --output-dir pdffiles/si
 """
 
@@ -310,7 +310,7 @@ def plot_grid_for_flag(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--input-root", type=Path, default=Path("model_runs"))
+    parser.add_argument("--input-root", type=Path, default=Path("data/example_runs"))
     parser.add_argument("--output-dir", type=Path,
                         default=Path("pdffiles/si"))
     parser.add_argument("--filename-prefix", type=str, default="mu_grid")

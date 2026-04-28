@@ -233,7 +233,7 @@ def validate_csv(df: pd.DataFrame) -> pd.DataFrame:
 # Constants from boundary_prevalence_ecological_models.py
 # ---------------------------------------------------------------------------
 
-BASE = "model_runs"
+BASE = "data/example_runs"
 _GIBBS_DIR = f"{BASE}/gibbs_128_dirs_from_gibbs_refgrid_n4to10_50reps_seed12345"
 GIBBS_SOURCES = {
     4:  f"{_GIBBS_DIR}/*_n4_*.json",

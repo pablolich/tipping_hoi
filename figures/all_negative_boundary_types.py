@@ -50,7 +50,7 @@ def main():
     )
     args = parser.parse_args()
 
-    model_runs = Path("model_runs")
+    model_runs = Path("data/example_runs")
     bank_paths = [model_runs / args.bank_top, model_runs / args.bank_bottom]
     for p in bank_paths:
         if not p.is_dir():

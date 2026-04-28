@@ -11,7 +11,7 @@ Layout:
 
 Usage (run from new_code/):
     python figures/tipping_prevalence_panels.py
-    python figures/tipping_prevalence_panels.py --model-runs model_runs --output pdffiles/main/figure_3.pdf
+    python figures/tipping_prevalence_panels.py --model-runs data/example_runs --output pdffiles/main/figure_3.pdf
 """
 
 import argparse
@@ -563,7 +563,7 @@ def load_or_build_aggregate(cache_path: Path, model_runs: Path, rebuild: bool) -
 
 def main():
     parser = argparse.ArgumentParser(description="Figure 3: mu_B prevalence + distributions")
-    parser.add_argument("--model-runs", type=Path, default=Path("model_runs"))
+    parser.add_argument("--model-runs", type=Path, default=Path("data/example_runs"))
     parser.add_argument("--output", type=Path,
                         default=Path("pdffiles/main/figure_3.pdf"))
     parser.add_argument("--cache", type=Path, default=DEFAULT_CACHE_PATH,

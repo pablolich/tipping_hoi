@@ -39,7 +39,7 @@ plt.rcParams.update({
 })
 
 
-BASE = "model_runs"
+BASE = "data/example_runs"
 BANKS = [
     (r"$\mu_B = -0.1$", f"{BASE}/2_bank_standard_50_models_n_4-20_128_dirs_muB_-0.1"),
     (r"$\mu_B = 0.0$",  f"{BASE}/2_bank_standard_50_models_n_4-20_128_dirs_muB_0.0"),

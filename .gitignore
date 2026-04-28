@@ -28,7 +28,9 @@ figures/boundary_data/
 figures/panel_candidates/
 figures/figures/
 
-# Cluster runtime artifacts
-cluster/logs/
-cluster/chunks/
-cluster/manifests/
+# HPC / cluster scripts (not used by reviewers; kept locally only)
+hpc/
+cluster/
+
+# Generated figures (regenerated on demand via README instructions)
+pdffiles/

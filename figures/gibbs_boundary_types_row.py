@@ -212,7 +212,7 @@ def main():
                              "Pass multiple values to produce one row per field.")
     args = parser.parse_args()
 
-    model_runs = Path("model_runs")
+    model_runs = Path("data/example_runs")
     if args.bank is not None:
         bank_path = model_runs / args.bank
         if not bank_path.is_dir():

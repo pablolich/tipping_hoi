@@ -18,7 +18,7 @@ JSONs, so SI_hysteresis panels show "no data" until the backtrack stage runs.
 Run from new_code/:
 
     python figures/si_panels.py
-    python figures/si_panels.py --model-runs model_runs --output-dir pdffiles/si
+    python figures/si_panels.py --model-runs data/example_runs --output-dir pdffiles/si
 """
 
 import argparse
@@ -507,7 +507,7 @@ def _save(fig: plt.Figure, stem: Path) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Nature SI figures: four-bank tipping diagnostics")
-    parser.add_argument("--model-runs", type=Path, default=Path("model_runs"))
+    parser.add_argument("--model-runs", type=Path, default=Path("data/example_runs"))
     parser.add_argument("--output-dir", type=Path, default=Path("pdffiles/si"))
     args = parser.parse_args()
 
