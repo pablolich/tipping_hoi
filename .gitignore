@@ -32,3 +32,6 @@ figures/figures/
 cluster/logs/
 cluster/chunks/
 cluster/manifests/
+
+# Claude Code
+.claude/

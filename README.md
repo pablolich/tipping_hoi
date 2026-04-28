@@ -109,38 +109,58 @@ Subsequent Julia sessions reuse the precompiled cache and start in seconds.
 
 ## Demo
 
-A self-contained, additive demo that runs against a shipped example bank and
-verifies the install. It recomputes the Taylor-expansion effective-nonlinearity
-metric on one small model file (`n = 5`, 128 directions, 11 α values) without
-writing to disk (`--dry-run`). The shipped bank already has
-`alpha_eff_taylor_grid` precomputed, so `--force` is used to bypass the
-"already-processed" skip and exercise the full computation path.
+A self-contained demo that runs Stage 2 (`pipeline/boundary_scan.jl`) on one
+small shipped model (`n = 4`) for a **single ray direction** across the full
+α grid (11 values, α ∈ {0, 0.1, …, 1.0}). This exercises the
+HomotopyContinuation tracker, polynomial-system construction, and ODE
+fallback paths — i.e. the load-bearing parts of the pipeline. It runs in
+**chunk mode**, which writes a separate `..._chunk_0_0.json` output and
+leaves the shipped `scan_results` in the original JSON untouched.
+
+Run from the repository root:
 
 ```bash
-julia --project=. --startup-file=no postprocess/add_alpha_eff_taylor.jl \
-    "data/example_runs/2_bank_standard_50_models_n_5-10_128_dirs_muA_0.0_muB_0.0" \
-    --dry-run --force
+julia --project=. --startup-file=no pipeline/boundary_scan.jl \
+    "data/example_runs/2_bank_all_negative_50_models_n_4-10_128_dirs_sA_1.0_sB_1.0" \
+    --model-file 2_model_n_4_seed_52800003_n_dirs_128.json \
+    --dir-chunk-start 0 --dir-chunk-end 0
 ```
 
-**Expected output.** Two lines on stdout:
+**Expected output.** A startup banner, then a one-line scan log, ending with:
 
 ```
-would-update data/example_runs/2_bank_standard_50_models_n_5-10_128_dirs_muA_0.0_muB_0.0/2_model_n_5_seed_62800003_n_dirs_128.json
-summary updated=1 skipped=0 errors=0 dry_run=true
+Boundary scan
+  run: <abs-path>/data/example_runs/2_bank_all_negative_50_models_n_4-10_128_dirs_sA_1.0_sB_1.0
+  models: 1
+  alpha_grid: [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0] (gibbs models use alpha_eff from JSON)
+  max_pert: 1000.0
+  preboundary_fraction: 0.99
+  chunk mode: directions 0-0 (0-based)
+  output: separate chunk files
+[1/1] scanning 2_model_n_4_seed_52800003_n_dirs_128.json
+      wrote 2_model_n_4_seed_52800003_n_dirs_128_chunk_0_0.json
+Done.
 ```
 
-To actually persist a recomputed value, drop `--dry-run` (this only rewrites
-the `alpha_eff_taylor_grid`, `P_taylor_grid`, `Q_taylor_grid` fields and
-leaves all `scan_results` / `post_dynamics_results` / `backtrack_results`
-untouched).
+A new file
+`data/example_runs/2_bank_all_negative_…/2_model_n_4_seed_52800003_n_dirs_128_chunk_0_0.json`
+(≈ 16 KB) is written, containing `scan_config` (with `dir_start = dir_end = 0`),
+plus `scan_results` of length 11 (one entry per α value), each with one
+direction record `{flag, status, delta_c, drcrit, x_preboundary, x_boundary}`.
+For this seed, both α = 0 and α = 1 produce `flag = unstable` — the chosen ray
+exits the feasibility region through a Hopf-type instability rather than a
+fold. Delete the chunk file when finished:
 
-**Expected runtime on a normal desktop computer:** ≈ 10–15 s on a warm Julia
-session, ≈ 30–60 s on the very first run (package precompilation dominates).
+```bash
+rm "data/example_runs/2_bank_all_negative_50_models_n_4-10_128_dirs_sA_1.0_sB_1.0/2_model_n_4_seed_52800003_n_dirs_128_chunk_0_0.json"
+```
 
-For an end-to-end demo that exercises Stage 2 (homotopy-continuation boundary
-scan), regenerate a small bank and run the pipeline as documented under
-[Quick start](#quick-start) below — expect ≈ 2–5 min on a normal desktop for
-`n = 4`, 50 models, 128 directions.
+**Expected runtime on a normal desktop computer:** ≈ 1–2 min for the 11 HC
+tracks (Julia precompile is a small fraction of total time on this demo;
+HC dominates).
+
+For a larger end-to-end demo that exercises the full pipeline (Stages 2–4)
+on a freshly generated bank, see [Quick start](#quick-start) below.
 
 ---
 
