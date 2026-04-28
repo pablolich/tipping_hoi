@@ -181,8 +181,8 @@ end
     end
 end
 
-@testset "dispatch: elegant (α-grid) smoke test" begin
-    path = _first_json_in("2_bank_elegant_50_models_n_4-20_128_dirs_muB_0.0")
+@testset "dispatch: standard (α-grid) smoke test" begin
+    path = _first_json_in("2_bank_standard_50_models_n_4-20_128_dirs_muB_0.0")
     if path !== nothing
         bank = _load_bank(path)
         αgrid = collect(Float64, bank["alpha_grid"])
@@ -233,7 +233,7 @@ end
 
 @testset "dispatch errors" begin
     glvhoi_bank = Dict{String,Any}(
-        "dynamics_mode" => "elegant",
+        "dynamics_mode" => "standard",
         "x_star" => [1.0],
     )
     @test_throws ErrorException build_per_capita_rates(glvhoi_bank)

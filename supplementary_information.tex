@@ -535,7 +535,7 @@ By construction $\alpha^{\mathrm{Taylor}}_{\mathrm{eff}} = 0$ when $f$ is exactl
 \label{sec:alpha_taylor_closed}
 
 For the main-text construction of Section~\ref{sec:si_sampling} (Eq. \ref{eq:equil}) we the constrains so that $\mathbf{x}^\star = \mathbf{1}_n$ is a coexistence equilibrium at $\mathbf{r} = \mathbf{1}_n$ for every $\alpha \in [0,1]$ and for every realization of the random tensors (Eq.~\eqref{eq:zerosum} followed by the uniform rescaling step). Under this construction, $\alpha^{\mathrm{Taylor}}_{\mathrm{eff}}$ reduces to (See Appendix)
-\begin{equation}\label{eq:alpha_taylor_elegant}
+\begin{equation}\label{eq:alpha_taylor_standard}
   \alpha^{\mathrm{Taylor}}_{\mathrm{eff}}\;=\; \frac{\alpha}{1 + 2\alpha}, \qquad \alpha \in [0,1],
 \end{equation}
 Note that this nonlinearity proxy is a monotonically increasing function of alpha, confirming that it is indeed a valid measure of HOI strength.
@@ -544,7 +544,7 @@ Note that this nonlinearity proxy is a monotonically increasing function of alph
 \subsubsection{A nonlocal metric}
 \label{sec:alpha_hull}
 
-The Taylor-based nonlinearity of is a purely local quantity: $P$ and $Q$ are built from the Jacobian $J$ and Hessian $H$ evaluated \emph{at} the coexistence equilibrium $\mathbf{x}^\star$ (Eqs.~\eqref{eq:T12_def}--\eqref{eq:alpha_taylor_def}). For systems whose nonlinearity is smooth and global, this pointwise reading of $f$ is informative. For the tipping behaviour we study in the main text, however, it can miss structure that actually drives the collapse. A fold bifurcation is created by the collision of the stable coexistence state with a distinct unstable equilibrium, which typically sits \emph{away} from $\mathbf{x}^\star$ somewhere in the nonnegative orthant; the curvature of $f$ between the two equilibria is what eventually annihilates them as the driver is increased. A system whose per-capita rates look nearly affine at $\mathbf{x}^\star$ can therefore still harbour a fold a finite distance away, and will be assigned a small $\alpha^{\mathrm{Taylor}}_{\mathrm{eff}}$ even when its tipping structure is strongly nonlinear. This gap is not hypothetical: in the closed-form identity Eq.~\eqref{eq:alpha_taylor_elegant} the Taylor metric saturates at $1/3$ as $\alpha \to 1$, because the derivatives at $\mathbf{x}^\star = \mathbf{1}$ cannot see HOI structure that only becomes visible further out in state space.
+The Taylor-based nonlinearity of is a purely local quantity: $P$ and $Q$ are built from the Jacobian $J$ and Hessian $H$ evaluated \emph{at} the coexistence equilibrium $\mathbf{x}^\star$ (Eqs.~\eqref{eq:T12_def}--\eqref{eq:alpha_taylor_def}). For systems whose nonlinearity is smooth and global, this pointwise reading of $f$ is informative. For the tipping behaviour we study in the main text, however, it can miss structure that actually drives the collapse. A fold bifurcation is created by the collision of the stable coexistence state with a distinct unstable equilibrium, which typically sits \emph{away} from $\mathbf{x}^\star$ somewhere in the nonnegative orthant; the curvature of $f$ between the two equilibria is what eventually annihilates them as the driver is increased. A system whose per-capita rates look nearly affine at $\mathbf{x}^\star$ can therefore still harbour a fold a finite distance away, and will be assigned a small $\alpha^{\mathrm{Taylor}}_{\mathrm{eff}}$ even when its tipping structure is strongly nonlinear. This gap is not hypothetical: in the closed-form identity Eq.~\eqref{eq:alpha_taylor_standard} the Taylor metric saturates at $1/3$ as $\alpha \to 1$, because the derivatives at $\mathbf{x}^\star = \mathbf{1}$ cannot see HOI structure that only becomes visible further out in state space.
 
 We therefore introduce a second, nonlocal metric that measures how much of the per-capita rate $f$ over the tipping-relevant region of state space cannot be captured by \emph{any} affine model. Intuitively: if $f$ happens to be affine throughout the region the boundary-scan traverses, the system cannot fold within that region, regardless of how curved $f$ is at isolated points. Conversely, residual variance of $f$ against its best affine approximation provides a direct, coordinate-free measure of the nonlinearity that the fold geometry actually sees.
 
@@ -575,7 +575,7 @@ The need to switch diagnostics between panels is not a deficiency of either meas
   \includegraphics[width=\linewidth]{pdffiles/si/alpha_hull_vs_taylor_by_muB.pdf}
 \caption{%
     \textbf{Hull nonlinearity vs.\ Taylor nonlinearity for the three main-text banks.}
-    Mean hull-based effective nonlinearity $\alpha^{\mathrm{hull}}_{\mathrm{eff}}$ (Section~\ref{sec:alpha_hull}, Eq.~\eqref{eq:alpha_hull_def}) plotted against the local Taylor metric $\alpha^{\mathrm{Taylor}}_{\mathrm{eff}}$ (Section~\ref{sec:alpha_taylor}, Eq.~\eqref{eq:alpha_taylor_def}) for each of the three main-text parameterizations: \textbf{(a)} $\mu_B = -0.1$, \textbf{(b)} $\mu_B = 0.0$, \textbf{(c)} $\mu_B = 0.1$. Each curve corresponds to a fixed diversity $n$ (colors). The top axis (secondary) shows the original mixing parameter $\alpha$ via the closed-form inversion $\alpha = \alpha^{\mathrm{Taylor}}_{\mathrm{eff}}/(1 - 2\alpha^{\mathrm{Taylor}}_{\mathrm{eff}})$ implied by Eq.~\eqref{eq:alpha_taylor_elegant}; both $x$-axes therefore index the same grid. Markers and lines show the mean across $\sim 50$ replicates per cell; vertical error bars show $\pm 1$ standard deviation of $\alpha^{\mathrm{hull}}_{\mathrm{eff}}$ across replicates. No horizontal error bars are drawn because $\alpha^{\mathrm{Taylor}}_{\mathrm{eff}}$ is, by the closed-form identity Eq.~\eqref{eq:alpha_taylor_elegant}, identical for every replicate of every bank. Insets show the fold prevalence as a function of the nonlocal nonlinearity $\alpha^{\mathrm{hull}}_{\mathrm{eff}}$; capturing a tight correlation for the first two banks, and reflecting the original lack of correlation that alpha had with fold prevalence for the third bank.}
+    Mean hull-based effective nonlinearity $\alpha^{\mathrm{hull}}_{\mathrm{eff}}$ (Section~\ref{sec:alpha_hull}, Eq.~\eqref{eq:alpha_hull_def}) plotted against the local Taylor metric $\alpha^{\mathrm{Taylor}}_{\mathrm{eff}}$ (Section~\ref{sec:alpha_taylor}, Eq.~\eqref{eq:alpha_taylor_def}) for each of the three main-text parameterizations: \textbf{(a)} $\mu_B = -0.1$, \textbf{(b)} $\mu_B = 0.0$, \textbf{(c)} $\mu_B = 0.1$. Each curve corresponds to a fixed diversity $n$ (colors). The top axis (secondary) shows the original mixing parameter $\alpha$ via the closed-form inversion $\alpha = \alpha^{\mathrm{Taylor}}_{\mathrm{eff}}/(1 - 2\alpha^{\mathrm{Taylor}}_{\mathrm{eff}})$ implied by Eq.~\eqref{eq:alpha_taylor_standard}; both $x$-axes therefore index the same grid. Markers and lines show the mean across $\sim 50$ replicates per cell; vertical error bars show $\pm 1$ standard deviation of $\alpha^{\mathrm{hull}}_{\mathrm{eff}}$ across replicates. No horizontal error bars are drawn because $\alpha^{\mathrm{Taylor}}_{\mathrm{eff}}$ is, by the closed-form identity Eq.~\eqref{eq:alpha_taylor_standard}, identical for every replicate of every bank. Insets show the fold prevalence as a function of the nonlocal nonlinearity $\alpha^{\mathrm{hull}}_{\mathrm{eff}}$; capturing a tight correlation for the first two banks, and reflecting the original lack of correlation that alpha had with fold prevalence for the third bank.}
   \label{fig:alpha_hull_vs_taylor_by_muB}
 \end{figure}
 
@@ -1109,7 +1109,7 @@ Figure~\ref{fig:thresholds} verifies the bounds numerically across all regimes. 
 
 \section{Derivation of $\alpha_{eff}^{Taylor}$}
 Differentiating $f_i$ once yields
-\begin{equation}\label{eq:J_elegant}
+\begin{equation}\label{eq:J_standard}
   J_{ij} \;=\; (1-\alpha)\, A_{ij} \;+\; \alpha \sum_{l=1}^{n}\bigl(B_{ijl} + B_{ilj}\bigr).
 \end{equation}
 Summing over $j$ with $x^\star_j = 1$ and applying Eq.~\eqref{eq:rowslice_pinned},
@@ -1117,14 +1117,14 @@ Summing over $j$ with $x^\star_j = 1$ and applying Eq.~\eqref{eq:rowslice_pinned
   T_1[i] \;=\; \sum_{j} J_{ij}
   &\;=\; (1-\alpha)\sum_{j} A_{ij} \;+\; \alpha \sum_{j,l}\bigl(B_{ijl} + B_{ilj}\bigr) \notag\\
   &\;=\; (1-\alpha)(-1) \;+\; 2\alpha\,(-1) \;=\; -(1 + \alpha).
-  \label{eq:T1_elegant}
+  \label{eq:T1_standard}
 \end{align}
 Differentiating a second time gives
 \begin{equation}
   H_{ijk} \;=\; \alpha\,\bigl(B_{ijk} + B_{ikj}\bigr),
 \end{equation}
 so that at $\mathbf{x}^\star = \mathbf{1}_n$,
-\begin{equation}\label{eq:T2_elegant}
+\begin{equation}\label{eq:T2_standard}
   T_2[i] \;=\; \tfrac{1}{2}\sum_{j,k} H_{ijk}
   \;=\; \tfrac{\alpha}{2}\sum_{j,k}\bigl(B_{ijk} + B_{ikj}\bigr)
   \;=\; \alpha\sum_{j,k} B_{ijk}
@@ -1134,7 +1134,7 @@ where the penultimate equality uses the relabeling $j \leftrightarrow k$, and th
 \begin{equation}
   P \;=\; 1 + \alpha, \qquad Q \;=\; \alpha,
 \end{equation}
-and substituting into Eq.~\eqref{eq:alpha_taylor_def} yields Eq.~\eqref{eq:alpha_taylor_elegant}.
+and substituting into Eq.~\eqref{eq:alpha_taylor_def} yields Eq.~\eqref{eq:alpha_taylor_standard}.
 
 
 \section{Regimes in Gibbs et. al (2024)}

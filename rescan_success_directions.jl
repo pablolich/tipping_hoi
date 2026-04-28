@@ -9,7 +9,7 @@
 #
 # Example:
 #   julia --startup-file=no new_code/rescan_success_directions.jl \
-#       2_bank_elegant_50_models_n_4-20_128_dirs_muB_0.1 \
+#       2_bank_standard_50_models_n_4-20_128_dirs_muB_0.1 \
 #       --model-file 2_model_n_10_seed_112800003_n_dirs_128.json \
 #       --delta-max 1000.0
 

@@ -330,7 +330,7 @@ end
 # JSON bank dispatch
 # --------------------------------------------------------------------------
 
-const _GLVHOI_MODES = ("elegant", "unique_equilibrium", "all_negative")
+const _GLVHOI_MODES = ("standard", "unique_equilibrium", "all_negative")
 
 """
     build_per_capita_rates(bank) -> (f, x_star, n)
@@ -383,7 +383,7 @@ end
 """
     build_per_capita_rates_for_alpha(bank, α) -> (f, x_star, n)
 
-GLV+HOI dispatcher: for `dynamics_mode` in standard/elegant/balanced/…
+GLV+HOI dispatcher: for `dynamics_mode` in standard/balanced/…
 or gibbs, reconstruct the per-capita rate at mixing parameter α.  For
 gibbs, α is ignored (the bank stores A, B with α already baked in).
 """

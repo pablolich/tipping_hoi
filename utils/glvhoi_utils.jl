@@ -74,8 +74,8 @@ function build_hc_system(model::Dict)
     mode = get(model, "dynamics_mode", "standard")
     if mode == "unique_equilibrium" || mode == "all_negative"
         return _build_hc_system_unique_equilibrium(model)
-    elseif mode == "elegant"
-        return _build_hc_system_elegant(model)
+    elseif mode == "standard"
+        return _build_hc_system_standard(model)
     elseif mode == "gibbs"
         return _build_hc_system_gibbs(model)
     elseif mode == "lever"
@@ -93,7 +93,7 @@ function build_hc_system(model::Dict)
     end
 end
 
-function _build_hc_system_elegant(model)
+function _build_hc_system_standard(model)
     n          = Int(model["n"])
     A          = nested_to_matrix(model["A"])
     B          = nested_to_tensor3(model["B"])

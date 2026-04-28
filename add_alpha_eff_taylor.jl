@@ -17,7 +17,7 @@ using JSON3
 include(joinpath(@__DIR__, "utils", "alpha_eff_taylor.jl"))
 
 const SCALAR_MODES = ("gibbs", "lever", "karatayev", "aguade", "mougi", "stouffer")
-const GRID_MODES = ("elegant", "unique_equilibrium", "all_negative")
+const GRID_MODES = ("standard", "unique_equilibrium", "all_negative")
 
 function usage()
     println("""

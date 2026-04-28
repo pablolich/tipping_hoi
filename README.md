@@ -98,7 +98,7 @@ Post-processing (additive, never overwrites):
 
 | Generator | Modes produced | Used for |
 |-----------|----------------|----------|
-| `generate_bank.jl` | `elegant`, `unique_equilibrium`, `all_negative` | Random GLV+HOI ensembles (Figs 3, S3, S4, S10–S13) |
+| `generate_bank.jl` | `standard`, `unique_equilibrium`, `all_negative` | Random GLV+HOI ensembles (Figs 3, S3, S4, S10–S13) |
 | `generate_gibbs_refgrid.jl` | `gibbs` | Gibbs replication, three regimes (Figs S6, S7) |
 | `other_models/generate_bank_<X>.jl` | `lever`, `karatayev`, `aguade`, `mougi`, `stouffer` | Published multispecies models (Fig 4, Fig S8) |
 
@@ -149,15 +149,15 @@ the enriched bank JSONs in `data/example_runs/`. The mapping:
 
 | Figure | Producer | Banks required |
 |--------|----------|----------------|
-| Fig 1 | `figures/hysteresis_two_routes.py` (+ `build_hysteresis_table.jl` to assemble input) | `2_bank_elegant_*` (full 4-stage pipeline) |
+| Fig 1 | `figures/hysteresis_two_routes.py` (+ `build_hysteresis_table.jl` to assemble input) | `2_bank_standard_*` (full 4-stage pipeline) |
 | Fig 2 | `figures/n2_feasibility_domains.py` (+ `figures/generate_n2_boundary_data.jl`, plus `gradual_discriminant.jl` / `abrupt_discriminant.jl` polynomial inputs) | n=2 analytical + numerical, no model bank needed |
-| Fig 3 | `figures/tipping_prevalence_panels.py` | `2_bank_elegant_50_models_n_4-20_128_dirs_muB_{-0.1, 0.0, 0.1}` |
+| Fig 3 | `figures/tipping_prevalence_panels.py` | `2_bank_standard_50_models_n_4-20_128_dirs_muB_{-0.1, 0.0, 0.1}` |
 | Fig 4 | `figures/assemble_published_models_figure.py` (panels A: `lever_and_multimodel_prevalence.py`, B: `multimodel_alpha_eff_metrics.py`) | All 5 other-models banks + Gibbs (`lever_bifurcation_branches.jl` produces panel A's CSV) |
 | Fig S1 | `figures/boundary_types_schematic.tex` | TikZ schematic only |
 | Fig S2, S9, S10–S13 | `figures/si_panels.py` | All 4 banks (μ_B variants + unique_equilibrium) |
-| Fig S3 | `figures/muA_muB_grid_panels.py` | 9 banks `2_bank_elegant_*_muA_*_muB_*` |
+| Fig S3 | `figures/muA_muB_grid_panels.py` | 9 banks `2_bank_standard_*_muA_*_muB_*` |
 | Fig S4 | `figures/all_negative_boundary_types.py` | `2_bank_all_negative_*` |
-| Fig S5 | `figures/alpha_eff_hull_vs_taylor.py` | `2_bank_elegant_*_muB_*` (with `alpha_eff_taylor` + `alpha_eff_hull`) |
+| Fig S5 | `figures/alpha_eff_hull_vs_taylor.py` | `2_bank_standard_*_muB_*` (with `alpha_eff_taylor` + `alpha_eff_hull`) |
 | Fig S6 | `figures/lever_and_multimodel_prevalence.py` (Gibbs branch) | Gibbs bank |
 | Fig S7 | `figures/gibbs_boundary_types_row.py` | Gibbs bank (with `alpha_eff_taylor` + `alpha_eff_hull`) |
 | Fig S8 | `figures/multimodel_alpha_eff_metrics.py` (log-log mode) | All 5 other-models banks + Gibbs |
@@ -175,7 +175,7 @@ figure script.
 ```
 tipping_hoi/
 ├── pipeline_config.jl              # All tunable constants (single source of truth)
-├── generate_bank.jl                # Stage 1 — random GLV+HOI (elegant / unique_equilibrium / all_negative)
+├── generate_bank.jl                # Stage 1 — random GLV+HOI (standard / unique_equilibrium / all_negative)
 ├── generate_gibbs_refgrid.jl       # Stage 1 — Gibbs replication
 ├── boundary_scan.jl                # Stage 2 — HC boundary detection
 ├── post_boundary_dynamics.jl       # Stage 3 — ODE past boundary
@@ -217,7 +217,7 @@ are oblivious to which generator produced the bank.
 
 ### Random GLV+HOI (e.g. main Fig 3 bank)
 
-Edit `pipeline_config.jl`: set `DYNAMICS_MODE = "elegant"`, `BANK_BASE_SEED = 2`,
+Edit `pipeline_config.jl`: set `DYNAMICS_MODE = "standard"`, `BANK_BASE_SEED = 2`,
 override `BANK_MU_B` via env var if needed.
 
 ```bash
@@ -225,7 +225,7 @@ override `BANK_MU_B` via env var if needed.
 BANK_MU_B=0.0 julia --startup-file=no generate_bank.jl 4:20 50 128
 
 # Stages 2–4 — bank name is printed by Stage 1
-BANK="2_bank_elegant_50_models_n_4-20_128_dirs_muA_0.0_muB_0.0"
+BANK="2_bank_standard_50_models_n_4-20_128_dirs_muA_0.0_muB_0.0"
 julia --startup-file=no boundary_scan.jl           "data/example_runs/$BANK"
 julia --startup-file=no post_boundary_dynamics.jl  "data/example_runs/$BANK"
 julia --startup-file=no backtrack_perturbation.jl  "data/example_runs/$BANK"
@@ -275,9 +275,9 @@ All settings are in `pipeline_config.jl`. The most important:
 
 | Constant | Default | Description |
 |----------|---------|-------------|
-| `DYNAMICS_MODE` | `"elegant"` | Mode used by `generate_bank.jl`: `elegant`, `unique_equilibrium`, or `all_negative` |
+| `DYNAMICS_MODE` | `"standard"` | Mode used by `generate_bank.jl`: `standard`, `unique_equilibrium`, or `all_negative` |
 | `BANK_SIGMA_A`, `BANK_SIGMA_B` | `1.0`, `1.0` | Standard deviation of A and B entries (for `all_negative`) |
-| `BANK_MU_A`, `BANK_MU_B` | env-overridable | Means of A and B entries (for `elegant`) |
+| `BANK_MU_A`, `BANK_MU_B` | env-overridable | Means of A and B entries (for `standard`) |
 | `BANK_BASE_SEED` | `2` | Base seed; per-model seeds derived deterministically |
 | `SCAN_ALPHA_GRID` | `LinRange(0, 1, 11)` | α values to scan in GLV+HOI modes |
 | `SCAN_MAX_PERT` | `1000.0` | Maximum perturbation magnitude ‖δ · u‖ |
@@ -304,7 +304,7 @@ stages:
   "U":              [[float × n_dirs] × n],
   "x_star":         [float × n],
   "alpha_grid":     [float],                    // present for GLV+HOI modes
-  "dynamics_mode":  "elegant" | "unique_equilibrium" | "all_negative" |
+  "dynamics_mode":  "standard" | "unique_equilibrium" | "all_negative" |
                     "gibbs"   | "lever" | "karatayev" | "aguade" |
                     "mougi"   | "stouffer",
 

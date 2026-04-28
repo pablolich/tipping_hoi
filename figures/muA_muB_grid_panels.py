@@ -1,4 +1,4 @@
-"""Plot boundary-type prevalence across a (mu_A, mu_B) grid of elegant banks.
+"""Plot boundary-type prevalence across a (mu_A, mu_B) grid of standard banks.
 
 Produces four 3x3 figures (one per boundary type: negative, fold, unstable,
 success). Each panel is one (mu_A, mu_B) cell; within a panel the x-axis is
@@ -7,7 +7,7 @@ type — IQR shaded band per n with median line + markers, matching the
 aesthetics of figures/tipping_prevalence_panels.py.
 
 Bank directories are auto-discovered from --input-root by matching
-    *_bank_elegant_*_muA_<MUA>_muB_<MUB>
+    *_bank_standard_*_muA_<MUA>_muB_<MUB>
 
 Boundary scan output is required: each model JSON must already contain
 `scan_results` (run boundary_scan.jl first).
@@ -44,7 +44,7 @@ DARK_POINT_SIZE = 50 * 0.65
 DARK_EDGE_WIDTH = 0.6
 
 BANK_RE = re.compile(
-    r"_bank_elegant_.*_muA_(?P<muA>-?\d+(?:\.\d+)?)_muB_(?P<muB>-?\d+(?:\.\d+)?)$"
+    r"_bank_standard_.*_muA_(?P<muA>-?\d+(?:\.\d+)?)_muB_(?P<muB>-?\d+(?:\.\d+)?)$"
 )
 
 
@@ -337,7 +337,7 @@ def main() -> None:
 
     banks = discover_banks(args.input_root)
     if not banks:
-        raise SystemExit(f"No elegant bank dirs under {args.input_root}")
+        raise SystemExit(f"No standard bank dirs under {args.input_root}")
 
     mu_a_values = sorted({k[0] for k in banks})
     mu_b_values = sorted({k[1] for k in banks})

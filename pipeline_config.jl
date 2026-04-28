@@ -2,7 +2,7 @@
 # Edit values here instead of passing command-line flags.
 
 # ─── 1. Bank generation (generate_bank.jl) ──────────────────────────────────
-const DYNAMICS_MODE      = "elegant"  # "elegant", "unique_equilibrium", or "all_negative"
+const DYNAMICS_MODE      = "standard"  # "standard", "unique_equilibrium", or "all_negative"
 const BANK_BASE_SEED     = 2
 const BANK_SIGMA_A       = 1.0
 const BANK_SIGMA_B       = 1.0          # σ_B for all_negative mode (B entries ~ N(0, σ_B²/n²))

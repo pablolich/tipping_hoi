@@ -359,7 +359,7 @@ end
         # U: 2 rows × 1 col  (direction [1,0])
         "U"          => [[1.0], [0.0]],
         "x_star"     => [1.0, 1.0],
-        "dynamics_mode" => "elegant",
+        "dynamics_mode" => "standard",
         "post_dynamics_results" => [
             Dict{String,Any}(
                 "alpha_idx" => 1,

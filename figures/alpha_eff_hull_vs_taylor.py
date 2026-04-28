@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Three-panel scatter of alpha_eff_taylor_grid (x) vs alpha_eff_hull_grid
-(y), one panel per 2_bank_elegant_..._muB_* bank (muB in {-0.1, 0.0, 0.1}).
+(y), one panel per 2_bank_standard_..._muB_* bank (muB in {-0.1, 0.0, 0.1}).
 
 Within each panel, the 11 grid points are plotted per diversity n
 (color) with y-axis error bars from the std of alpha_eff_hull_grid over
@@ -41,9 +41,9 @@ plt.rcParams.update({
 
 BASE = "model_runs"
 BANKS = [
-    (r"$\mu_B = -0.1$", f"{BASE}/2_bank_elegant_50_models_n_4-20_128_dirs_muB_-0.1"),
-    (r"$\mu_B = 0.0$",  f"{BASE}/2_bank_elegant_50_models_n_4-20_128_dirs_muB_0.0"),
-    (r"$\mu_B = 0.1$",  f"{BASE}/2_bank_elegant_50_models_n_4-20_128_dirs_muB_0.1"),
+    (r"$\mu_B = -0.1$", f"{BASE}/2_bank_standard_50_models_n_4-20_128_dirs_muB_-0.1"),
+    (r"$\mu_B = 0.0$",  f"{BASE}/2_bank_standard_50_models_n_4-20_128_dirs_muB_0.0"),
+    (r"$\mu_B = 0.1$",  f"{BASE}/2_bank_standard_50_models_n_4-20_128_dirs_muB_0.1"),
 ]
 
 

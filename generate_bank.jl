@@ -175,7 +175,7 @@ function negdef_diag_shift(M::AbstractMatrix{<:Real}; safety::Float64=1.2, eps::
     return -delta
 end
 
-function sample_parameter_set_elegant(n::Int;
+function sample_parameter_set_standard(n::Int;
     muA::Float64 = 0.0,
     muB::Float64 = 0.0,
     rng::AbstractRNG)
@@ -352,14 +352,14 @@ derive_seed(base_seed::Int, n::Int, n_dirs::Int, model_idx::Int) = base_seed + 1
 function main()
     n_values, n_models, n_dirs_values, alpha_grid = parse_args(ARGS)
 
-    DYNAMICS_MODE in ("elegant", "unique_equilibrium", "all_negative") ||
-        error("DYNAMICS_MODE must be 'elegant', 'unique_equilibrium', or 'all_negative' (set in pipeline_config.jl)")
+    DYNAMICS_MODE in ("standard", "unique_equilibrium", "all_negative") ||
+        error("DYNAMICS_MODE must be 'standard', 'unique_equilibrium', or 'all_negative' (set in pipeline_config.jl)")
 
     out_root = joinpath(@__DIR__, "model_runs")
     n_written = 0
 
-    if DYNAMICS_MODE == "elegant"
-        bank_name = "$(BANK_BASE_SEED)_bank_elegant_$(n_models)_models_n_$(range_label(n_values))_$(range_label(n_dirs_values))_dirs_muA_$(BANK_MU_A)_muB_$(BANK_MU_B)"
+    if DYNAMICS_MODE == "standard"
+        bank_name = "$(BANK_BASE_SEED)_bank_standard_$(n_models)_models_n_$(range_label(n_values))_$(range_label(n_dirs_values))_dirs_muA_$(BANK_MU_A)_muB_$(BANK_MU_B)"
         out_dir   = joinpath(out_root, bank_name)
         mkpath(out_dir)
 
@@ -372,10 +372,10 @@ function main()
                     result = nothing
                     for attempt in 0:(max_tries - 1)
                         rng = MersenneTwister(seed + attempt)
-                        result = sample_parameter_set_elegant(n; muA=BANK_MU_A, muB=BANK_MU_B, rng=rng)
+                        result = sample_parameter_set_standard(n; muA=BANK_MU_A, muB=BANK_MU_B, rng=rng)
                         result !== nothing && break
                     end
-                    result === nothing && error("Failed to sample stable elegant system after $max_tries tries (n=$n, model_idx=$model_idx)")
+                    result === nothing && error("Failed to sample stable standard system after $max_tries tries (n=$n, model_idx=$model_idx)")
                     r, A, B, delta_A, delta_B = result
 
                     U = random_unit_rays(n, n_dirs; rng=MersenneTwister(seed))
@@ -393,9 +393,9 @@ function main()
                         "alpha_grid"    => alpha_grid,
                         "muA"           => BANK_MU_A,
                         "muB"           => BANK_MU_B,
-                        "dynamics_mode" => "elegant",
+                        "dynamics_mode" => "standard",
                         "metadata"      => Dict(
-                            "parameterization" => "elegant_planted",
+                            "parameterization" => "standard_planted",
                             "delta_A"          => delta_A,
                             "delta_B"          => delta_B,
                         ),

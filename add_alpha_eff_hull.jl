@@ -13,7 +13,7 @@
 # L² variation that no affine model captures.
 #
 # Scalar-α banks (gibbs, lever, karatayev, aguade, mougi, stouffer) get a
-# scalar `alpha_eff_hull`; GLV+HOI grid banks (standard/elegant/balanced/…)
+# scalar `alpha_eff_hull`; GLV+HOI grid banks (standard/balanced/…)
 # get an `alpha_eff_hull_grid` of length len(alpha_grid), with f rebuilt per
 # α via build_per_capita_rates_for_alpha and hull vertices drawn from the
 # per-α scan entry's x_preboundary points.
@@ -31,7 +31,7 @@ using Statistics
 include(joinpath(@__DIR__, "utils", "alpha_eff_taylor.jl"))
 
 const SCALAR_ALPHA_MODES = ("gibbs", "lever", "karatayev", "aguade", "mougi", "stouffer")
-const GLVHOI_GRID_MODES  = ("elegant", "unique_equilibrium", "all_negative")
+const GLVHOI_GRID_MODES  = ("standard", "unique_equilibrium", "all_negative")
 
 function usage()
     println("""

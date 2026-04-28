@@ -14,8 +14,8 @@
 #   --time       <TLIM>  Time limit                       (default: 12:00:00)
 #   --dry-run            Print sbatch command without submitting
 #
-# Example — rescan the mu_B = 0.1 elegant bank with delta_max = 1000:
-#   ./rescan_success_submit.sh 2_bank_elegant_50_models_n_4-20_128_dirs_muB_0.1 \
+# Example — rescan the mu_B = 0.1 standard bank with delta_max = 1000:
+#   ./rescan_success_submit.sh 2_bank_standard_50_models_n_4-20_128_dirs_muB_0.1 \
 #       --delta-max 1000
 #
 # Afterwards verify with:

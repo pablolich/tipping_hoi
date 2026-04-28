@@ -40,7 +40,7 @@ DEFAULT_BOUNDARY_FLAGS = ["negative", "complex"]
 MU_B_ROWS   = [-0.1, 0.0, 0.1]   # top → bottom
 REP_N       = 4
 
-BANK_PREFIX = "2_bank_elegant_50_models_n_4-20_128_dirs"
+BANK_PREFIX = "2_bank_standard_50_models_n_4-20_128_dirs"
 
 DEFAULT_CACHE_PATH = Path("figures/cache/figure_3_aggregate.pkl")
 CACHE_VERSION      = 1
