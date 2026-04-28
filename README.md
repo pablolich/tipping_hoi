@@ -1,7 +1,7 @@
 # Tipping Points in GLV+HOI Communities
 
 Code for the paper **"Tipping points are typical in ecosystems with higher-order
-interactions"** (`main.tex`, `supplementary_information.tex`).
+interactions"**.
 
 A Julia/Python pipeline for detecting, characterising, and testing the
 reversibility of tipping points in ecological communities described by
@@ -10,8 +10,8 @@ plus the same analysis applied to five published multispecies models
 (Lever, Karatayev, Aguadé-Gorgorió, Mougi, Stouffer) and the Gibbs replication.
 
 > Theoretical background is in §[Scientific background](#scientific-background)
-> below; for the full derivations see `main.tex` and
-> `supplementary_information.tex`.
+> below; for the full derivations see the paper main text and supplementary
+> information.
 
 ---
 
@@ -29,17 +29,11 @@ tipping_hoi/
 ├── postprocess/               # Optional post-processing of bank JSONs
 │   ├── add_alpha_eff_taylor.jl       # Taylor nonlinearity metric
 │   └── add_alpha_eff_hull.jl         # Convex-hull nonlinearity metric
-├── hpc/                       # Reproduction infrastructure for cluster runs
-│   ├── merge_chunks.jl               # Merge chunked Stage 2 outputs
-│   └── rescan_success_directions.jl  # Re-run "success" rays at higher δ_max
 ├── utils/                     # Shared low-level helpers (HC, ODE, JSON, math)
 ├── other_models/              # Five published multispecies models (Fig 4)
 ├── figures/                   # Python figure scripts + Julia data generators
 ├── tests/                     # Julia test suite
-├── cluster/                   # SLURM submission scripts
 ├── data/example_runs/         # Example enriched bank JSONs (one per parameterisation)
-├── main.tex                   # Paper main text
-├── supplementary_information.tex
 ├── Project.toml / Manifest.toml      # Julia dependency lock
 └── requirements.txt           # Python dependencies (figure scripts)
 ```
@@ -70,9 +64,8 @@ Windows is untested.
 **Hardware.** No non-standard hardware required for the demo or for running the
 pipeline on small banks (n ≤ 10, ≤ 50 models). The full Fig 3 / Fig S3 banks
 (n up to 20, three μ_B values × 50 models × 128 directions × 11 α values) were
-produced on a SLURM cluster — see `cluster/` and `hpc/merge_chunks.jl`. None of
-this is required to reproduce the figures from the example banks shipped under
-`data/example_runs/`.
+produced on a SLURM cluster. None of this is required to reproduce the figures
+from the example banks shipped under `data/example_runs/`.
 
 ---
 
@@ -175,7 +168,7 @@ example bank JSONs in `data/example_runs/`. Mapping:
 | Fig 2 | `figures/n2_feasibility_domains.py` (+ `figures/generate_n2_boundary_data.jl`, plus `gradual_discriminant.jl` / `abrupt_discriminant.jl` polynomial inputs) | n=2 analytical + numerical, no model bank needed |
 | Fig 3 | `figures/tipping_prevalence_panels.py` | `2_bank_standard_50_models_n_4-20_128_dirs_muB_{-0.1, 0.0, 0.1}` |
 | Fig 4 | `figures/assemble_published_models_figure.py` (panels A: `lever_and_multimodel_prevalence.py`, B: `multimodel_alpha_eff_metrics.py`) | All 5 other-models banks + Gibbs (`lever_bifurcation_branches.jl` produces panel A's CSV) |
-| Fig S1 | `figures/boundary_types_schematic.tex` | TikZ schematic only |
+| Fig S1 | TikZ schematic in paper source (not reproduced from this repo) | — |
 | Fig S2, S9, S10–S13 | `figures/si_panels.py` | All 4 banks (μ_B variants + unique_equilibrium) |
 | Fig S3 | `figures/muA_muB_grid_panels.py` | 9 banks `2_bank_standard_*_muA_*_muB_*` |
 | Fig S4 | `figures/all_negative_boundary_types.py` | `2_bank_all_negative_*` |
@@ -244,8 +237,6 @@ To process a single file (debugging or cluster parallelism):
 julia --startup-file=no pipeline/boundary_scan.jl "data/example_runs/$BANK" \
     --model-file model_n_4_seed_X_n_dirs_128.json
 ```
-
-For HPC chunked runs see `cluster/` and `hpc/merge_chunks.jl`.
 
 ---
 

@@ -34,3 +34,15 @@ cluster/
 
 # Generated figures (regenerated on demand via README instructions)
 pdffiles/
+
+# LaTeX manuscript sources and build artifacts
+*.tex
+*.aux
+*.bbl
+*.blg
+*.fdb_latexmk
+*.fls
+*.log
+*.out
+*.synctex.gz
+*.toc
