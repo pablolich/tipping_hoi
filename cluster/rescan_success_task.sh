@@ -22,7 +22,7 @@ echo "[$(date '+%Y-%m-%d %H:%M:%S')] rescan task=${SLURM_ARRAY_TASK_ID} model=${
 
 cd "${REPO_ROOT}"
 "${JULIA_EXE}" --startup-file=no \
-    "${REPO_ROOT}/new_code/rescan_success_directions.jl" "${RUN_DIR}" \
+    "${REPO_ROOT}/new_code/hpc/rescan_success_directions.jl" "${RUN_DIR}" \
     --model-file "${model_file}" \
     --delta-max  "${DELTA_MAX}"
 

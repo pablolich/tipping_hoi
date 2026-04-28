@@ -35,7 +35,7 @@ JULIA_EXE="$(which julia)" JULIA_DEPOT_PATH="$PWD/.julia_depot/v1.10" \
 From repo root:
 
 ```bash
-julia --project=. --startup-file=no new_code/generate_bank.jl 3:5 200 100
+julia --project=. --startup-file=no new_code/pipeline/generate_bank.jl 3:5 200 100
 ls new_code/model_runs
 ```
 
@@ -103,7 +103,7 @@ The Gibbs bank is generated from existing `robustness_check` systems rather than
 ### Generate a Gibbs bank
 
 ```bash
-julia --project=. --startup-file=no new_code/generate_bank_gibbs.jl
+julia --project=. --startup-file=no new_code/pipeline/generate_gibbs_refgrid.jl
 ls new_code/model_runs
 ```
 

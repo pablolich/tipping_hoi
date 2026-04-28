@@ -19,9 +19,9 @@ model_file="$(sed -n "${SLURM_ARRAY_TASK_ID}p" "${MANIFEST}" | tr -d '\r')"
 }
 
 case "${STAGE}" in
-    boundary)  script="boundary_scan.jl" ;;
-    post)      script="post_boundary_dynamics.jl" ;;
-    backtrack) script="backtrack_perturbation.jl" ;;
+    boundary)  script="pipeline/boundary_scan.jl" ;;
+    post)      script="pipeline/post_boundary_dynamics.jl" ;;
+    backtrack) script="pipeline/backtrack_perturbation.jl" ;;
     *) echo "ERROR: unknown STAGE='${STAGE}'" >&2; exit 1 ;;
 esac
 

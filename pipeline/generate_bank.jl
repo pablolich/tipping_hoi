@@ -1,15 +1,15 @@
 #!/usr/bin/env julia
 # Example terminal calls:
-#   julia --startup-file=no new_code/generate_bank.jl 3:5 10 8,16
-#   julia --startup-file=no new_code/generate_bank.jl 3 50 100
+#   julia --startup-file=no pipeline/generate_bank.jl 3:5 10 8,16
+#   julia --startup-file=no pipeline/generate_bank.jl 3 50 100
 # All other settings (seed, sigmaA, etc.) are set in pipeline_config.jl.
 
 using Random
 using LinearAlgebra
 using JSON3
 
-include(joinpath(@__DIR__, "pipeline_config.jl"))
-include(joinpath(@__DIR__, "model_store_utils.jl"))
+include(joinpath(@__DIR__, "..", "pipeline_config.jl"))
+include(joinpath(@__DIR__, "..", "utils", "model_store_utils.jl"))
 
 function parse_int_list(s::AbstractString)
     t = strip(s)
@@ -34,7 +34,7 @@ end
 function usage_error()
     msg = """
     Usage:
-      julia new_code/generate_bank.jl <n_values> <n_models> <n_dirs> [--alpha-grid VALUES]
+      julia pipeline/generate_bank.jl <n_values> <n_models> <n_dirs> [--alpha-grid VALUES]
 
     Args:
       n_values   Comma list or range, e.g. 3,4,5 or 3:6
@@ -355,7 +355,7 @@ function main()
     DYNAMICS_MODE in ("standard", "unique_equilibrium", "all_negative") ||
         error("DYNAMICS_MODE must be 'standard', 'unique_equilibrium', or 'all_negative' (set in pipeline_config.jl)")
 
-    out_root = joinpath(@__DIR__, "model_runs")
+    out_root = joinpath(@__DIR__, "..", "model_runs")
     n_written = 0
 
     if DYNAMICS_MODE == "standard"

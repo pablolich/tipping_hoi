@@ -8,7 +8,7 @@
 # of the JSON (A, B, r, U, other flags, metadata) is preserved.
 #
 # Example:
-#   julia --startup-file=no new_code/rescan_success_directions.jl \
+#   julia --startup-file=no hpc/rescan_success_directions.jl \
 #       2_bank_standard_50_models_n_4-20_128_dirs_muB_0.1 \
 #       --model-file 2_model_n_10_seed_112800003_n_dirs_128.json \
 #       --delta-max 1000.0
@@ -17,21 +17,21 @@ using LinearAlgebra
 using JSON3
 using HomotopyContinuation
 
-include(joinpath(@__DIR__, "pipeline_config.jl"))
-include(joinpath(@__DIR__, "model_store_utils.jl"))
-include(joinpath(@__DIR__, "utils", "json_utils.jl"))
-include(joinpath(@__DIR__, "utils", "hc_param_utils.jl"))
-include(joinpath(@__DIR__, "utils", "glvhoi_utils.jl"))
-include(joinpath(@__DIR__, "boundary_scan.jl"))  # reuse scan_ray / scan_ray_linear_alpha0 / ScanWorkspace
+include(joinpath(@__DIR__, "..", "pipeline_config.jl"))
+include(joinpath(@__DIR__, "..", "utils", "model_store_utils.jl"))
+include(joinpath(@__DIR__, "..", "utils", "json_utils.jl"))
+include(joinpath(@__DIR__, "..", "utils", "hc_param_utils.jl"))
+include(joinpath(@__DIR__, "..", "utils", "glvhoi_utils.jl"))
+include(joinpath(@__DIR__, "..", "pipeline", "boundary_scan.jl"))  # reuse scan_ray / scan_ray_linear_alpha0 / ScanWorkspace
 
 function usage_error()
     msg = """
     Usage:
-      julia --startup-file=no new_code/rescan_success_directions.jl <run_dir>
+      julia --startup-file=no hpc/rescan_success_directions.jl <run_dir>
                               [--model-file FILE] [--delta-max FLOAT]
 
     Required:
-      <run_dir>          Folder inside new_code/model_runs/
+      <run_dir>          Folder inside model_runs/
 
     Options:
       --model-file FILE  Rescan only one model JSON (default: all in run_dir)

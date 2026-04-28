@@ -4,8 +4,8 @@
 # Unlike pass4, this processes all boundary rows (not only folds).
 #
 # Example:
-#   julia --startup-file=no new_code/backtrack_perturbation.jl 1_bank_50_models_n_2-7_100_dirs_b_dirichlet
-#   julia --startup-file=no new_code/backtrack_perturbation.jl 1_bank_50_models_n_2-7_100_dirs_b_dirichlet \
+#   julia --startup-file=no pipeline/backtrack_perturbation.jl 1_bank_50_models_n_2-7_100_dirs_b_dirichlet
+#   julia --startup-file=no pipeline/backtrack_perturbation.jl 1_bank_50_models_n_2-7_100_dirs_b_dirichlet \
 #       --model-file model_n_3_seed_40000002_n_dirs_100.json
 # All backtrack settings are in pipeline_config.jl.
 
@@ -15,22 +15,22 @@ using HomotopyContinuation
 using DifferentialEquations
 using SciMLBase
 
-include(joinpath(@__DIR__, "pipeline_config.jl"))
-include(joinpath(@__DIR__, "model_store_utils.jl"))
-include(joinpath(@__DIR__, "utils", "math_utils.jl"))
-include(joinpath(@__DIR__, "utils", "json_utils.jl"))
-include(joinpath(@__DIR__, "utils", "hc_param_utils.jl"))
-include(joinpath(@__DIR__, "utils", "glvhoi_utils.jl"))
-include(joinpath(@__DIR__, "utils", "dynamics_cfg_utils.jl"))
-include(joinpath(@__DIR__, "utils", "boundary_event_utils.jl"))
+include(joinpath(@__DIR__, "..", "pipeline_config.jl"))
+include(joinpath(@__DIR__, "..", "utils", "model_store_utils.jl"))
+include(joinpath(@__DIR__, "..", "utils", "math_utils.jl"))
+include(joinpath(@__DIR__, "..", "utils", "json_utils.jl"))
+include(joinpath(@__DIR__, "..", "utils", "hc_param_utils.jl"))
+include(joinpath(@__DIR__, "..", "utils", "glvhoi_utils.jl"))
+include(joinpath(@__DIR__, "..", "utils", "dynamics_cfg_utils.jl"))
+include(joinpath(@__DIR__, "..", "utils", "boundary_event_utils.jl"))
 
 function usage_error()
     msg = """
     Usage:
-      julia --startup-file=no new_code/backtrack_perturbation.jl <run_dir> [--model-file FILE]
+      julia --startup-file=no pipeline/backtrack_perturbation.jl <run_dir> [--model-file FILE]
 
     Required:
-      <run_dir>          Folder inside new_code/model_runs/
+      <run_dir>          Folder inside model_runs/
 
     Options:
       --model-file FILE  Process one model JSON file from <run_dir>
@@ -166,7 +166,7 @@ function track_to_preboundary(ws::BacktrackWorkspace,
     return copy(real.(ws.tracker.state.x))
 end
 
-include(joinpath(@__DIR__, "utils", "ode_snap_utils.jl"))
+include(joinpath(@__DIR__, "..", "utils", "ode_snap_utils.jl"))
 
 function invasion_max_at_state(r0_full::AbstractVector{<:Real},
                                A_full_eff::AbstractMatrix{<:Real},

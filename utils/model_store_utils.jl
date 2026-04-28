@@ -1,6 +1,15 @@
 using JSON3
 
 function canonical_models_root(script_dir::AbstractString, run_dir::AbstractString)
+    # 1. Absolute path: trust it as-is.
+    isabspath(run_dir) && return run_dir
+    # 2. Resolves from the current working directory (e.g. invoked from the
+    #    repo root with run_dir = "data/example_runs/<bank>").
+    cwd_path = abspath(run_dir)
+    isdir(cwd_path) && return cwd_path
+    # 3. Fallback: the original convention, <script_dir>/model_runs/<run_dir>,
+    #    used when the user passes only a bank name and a `model_runs/`
+    #    symlink lives next to the script.
     return joinpath(script_dir, "model_runs", run_dir)
 end
 

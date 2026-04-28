@@ -165,7 +165,7 @@ merge_cmd=(
     --output "${merge_log_dir}/%j.out"
     --error  "${merge_log_dir}/%j.err"
     --dependency "${dep_str}"
-    --wrap "cd '${REPO_ROOT}' && '${JULIA_EXE}' --startup-file=no new_code/merge_chunks.jl '${run_dir}'"
+    --wrap "cd '${REPO_ROOT}' && '${JULIA_EXE}' --startup-file=no new_code/hpc/merge_chunks.jl '${run_dir}'"
 )
 
 if [[ "${dry_run}" == "true" ]]; then

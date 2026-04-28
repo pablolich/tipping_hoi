@@ -3,7 +3,7 @@
 # Chunk files are produced by boundary_scan.jl when --dir-chunk-start/--dir-chunk-end are passed.
 #
 # Usage:
-#   julia --startup-file=no new_code/merge_chunks.jl <run_dir> [options]
+#   julia --startup-file=no hpc/merge_chunks.jl <run_dir> [options]
 #
 # Options:
 #   --model-file FILE    Process only this one model (stem or full filename)
@@ -13,9 +13,9 @@
 
 using JSON3
 
-include(joinpath(@__DIR__, "pipeline_config.jl"))
-include(joinpath(@__DIR__, "model_store_utils.jl"))
-include(joinpath(@__DIR__, "utils", "json_utils.jl"))
+include(joinpath(@__DIR__, "..", "pipeline_config.jl"))
+include(joinpath(@__DIR__, "..", "utils", "model_store_utils.jl"))
+include(joinpath(@__DIR__, "..", "utils", "json_utils.jl"))
 
 # ---------------------------------------------------------------------------
 # CLI parsing
@@ -24,10 +24,10 @@ include(joinpath(@__DIR__, "utils", "json_utils.jl"))
 function usage_error()
     msg = """
     Usage:
-      julia --startup-file=no new_code/merge_chunks.jl <run_dir> [options]
+      julia --startup-file=no hpc/merge_chunks.jl <run_dir> [options]
 
     Required:
-      <run_dir>            Folder inside new_code/model_runs/
+      <run_dir>            Folder inside model_runs/
 
     Options:
       --model-file FILE    Process only this one model (stem or full filename)

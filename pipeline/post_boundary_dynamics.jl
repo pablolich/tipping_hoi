@@ -1,8 +1,8 @@
 #!/usr/bin/env julia
 # Post-boundary ODE dynamics driven by canonical model JSON files.
 # Example:
-#   julia --startup-file=no new_code/post_boundary_dynamics.jl 1_bank_50_models_n_2-7_100_dirs_b_dirichlet
-#   julia --startup-file=no new_code/post_boundary_dynamics.jl 1_bank_50_models_n_2-7_100_dirs_b_dirichlet --model-file model_n_3_seed_40000002_n_dirs_100.json
+#   julia --startup-file=no pipeline/post_boundary_dynamics.jl 1_bank_50_models_n_2-7_100_dirs_b_dirichlet
+#   julia --startup-file=no pipeline/post_boundary_dynamics.jl 1_bank_50_models_n_2-7_100_dirs_b_dirichlet --model-file model_n_3_seed_40000002_n_dirs_100.json
 # All dynamics settings are in pipeline_config.jl.
 
 using LinearAlgebra
@@ -11,20 +11,20 @@ using Random
 using DifferentialEquations
 using SciMLBase
 
-include(joinpath(@__DIR__, "pipeline_config.jl"))
-include(joinpath(@__DIR__, "model_store_utils.jl"))
-include(joinpath(@__DIR__, "utils", "math_utils.jl"))
-include(joinpath(@__DIR__, "utils", "json_utils.jl"))
-include(joinpath(@__DIR__, "utils", "glvhoi_utils.jl"))
-include(joinpath(@__DIR__, "utils", "dynamics_cfg_utils.jl"))
+include(joinpath(@__DIR__, "..", "pipeline_config.jl"))
+include(joinpath(@__DIR__, "..", "utils", "model_store_utils.jl"))
+include(joinpath(@__DIR__, "..", "utils", "math_utils.jl"))
+include(joinpath(@__DIR__, "..", "utils", "json_utils.jl"))
+include(joinpath(@__DIR__, "..", "utils", "glvhoi_utils.jl"))
+include(joinpath(@__DIR__, "..", "utils", "dynamics_cfg_utils.jl"))
 
 function usage_error()
     msg = """
     Usage:
-      julia --startup-file=no new_code/post_boundary_dynamics.jl <run_dir> [--model-file FILE]
+      julia --startup-file=no pipeline/post_boundary_dynamics.jl <run_dir> [--model-file FILE]
 
     Required:
-      <run_dir>          Folder inside new_code/model_runs/
+      <run_dir>          Folder inside model_runs/
 
     Options:
       --model-file FILE  Process one model JSON file from <run_dir>
@@ -60,7 +60,7 @@ function parse_args(args::Vector{String})
     return (run_dir=run_dir, model_file=model_file)
 end
 
-include(joinpath(@__DIR__, "utils", "ode_snap_utils.jl"))
+include(joinpath(@__DIR__, "..", "utils", "ode_snap_utils.jl"))
 
 function compute_abundance_ranks(x_minus::AbstractVector{<:Real})
     n = length(x_minus)

@@ -20,7 +20,7 @@ using Random
 using LinearAlgebra
 using JSON3
 
-include(joinpath(@__DIR__, "..", "model_store_utils.jl"))
+include(joinpath(@__DIR__, "..", "utils", "model_store_utils.jl"))
 include(joinpath(@__DIR__, "aguade_model.jl"))   # also loads lever_model.jl
 
 function usage_error()

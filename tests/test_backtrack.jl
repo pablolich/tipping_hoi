@@ -11,7 +11,7 @@
 using Test
 using LinearAlgebra
 
-include(joinpath(@__DIR__, "..", "backtrack_perturbation.jl"))
+include(joinpath(@__DIR__, "..", "pipeline", "backtrack_perturbation.jl"))
 
 # ─── Shared helper: build dyn config (mirrors main()) ────────────────────────
 

@@ -20,7 +20,7 @@
 # Existing `alpha_eff` is never touched.
 #
 # Usage:
-#   julia --startup-file=no new_code/add_alpha_eff_hull.jl <path> [<path>...] \
+#   julia --startup-file=no postprocess/add_alpha_eff_hull.jl <path> [<path>...] \
 #          [--force] [--dry-run] [--M SAMPLES] [--seed N]
 
 using JSON3
@@ -28,14 +28,14 @@ using LinearAlgebra
 using Random
 using Statistics
 
-include(joinpath(@__DIR__, "utils", "alpha_eff_taylor.jl"))
+include(joinpath(@__DIR__, "..", "utils", "alpha_eff_taylor.jl"))
 
 const SCALAR_ALPHA_MODES = ("gibbs", "lever", "karatayev", "aguade", "mougi", "stouffer")
 const GLVHOI_GRID_MODES  = ("standard", "unique_equilibrium", "all_negative")
 
 function usage()
     println("""
-Usage: julia --startup-file=no new_code/add_alpha_eff_hull.jl <path> [<path>...] [--force] [--dry-run] [--M SAMPLES] [--seed N]
+Usage: julia --startup-file=no postprocess/add_alpha_eff_hull.jl <path> [<path>...] [--force] [--dry-run] [--M SAMPLES] [--seed N]
 
 Writes per-bank fields:
   Scalar-α modes ($(SCALAR_ALPHA_MODES)):

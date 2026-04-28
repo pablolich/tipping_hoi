@@ -5,7 +5,7 @@
 # generate_gibbs_grid.jl can consume it directly.
 #
 # Usage:
-#   julia --startup-file=no new_code/generate_gibbs_refgrid.jl \
+#   julia --startup-file=no pipeline/generate_gibbs_refgrid.jl \
 #         <ref_grid_csv> <n_values> [reps_per_param] [max_attempts_mult] [seed]
 #
 # Arguments:
@@ -16,13 +16,13 @@
 #   seed                Base RNG seed (default 12345)
 #
 # Output:
-#   new_code/model_runs/gibbs_refgrid_<tag>/{Q1,Q2,Q3}/param_XXXX/nN/system_repXXX.json
+#   model_runs/gibbs_refgrid_<tag>/{Q1,Q2,Q3}/param_XXXX/nN/system_repXXX.json
 
 using Random
 using LinearAlgebra
 using JSON3
 
-include(joinpath(@__DIR__, "model_store_utils.jl"))
+include(joinpath(@__DIR__, "..", "utils", "model_store_utils.jl"))
 
 # ─── argument parsing ────────────────────────────────────────────────────────
 
@@ -41,7 +41,7 @@ end
 function parse_args(args::Vector{String})
     length(args) >= 2 || error("""
     Usage:
-      julia --startup-file=no new_code/generate_gibbs_refgrid.jl \\
+      julia --startup-file=no pipeline/generate_gibbs_refgrid.jl \\
             <ref_grid_csv> <n_values> [reps_per_param] [max_attempts_mult] [seed]
     """)
     ref_grid_csv     = args[1]
@@ -247,7 +247,7 @@ function main()
 
     n_str   = length(n_values) == 1 ? "n$(n_values[1])" : "n$(minimum(n_values))to$(maximum(n_values))"
     tag     = "$(n_str)_$(reps_per_param)reps_seed$(seed_base)"
-    out_root = joinpath(@__DIR__, "model_runs", "gibbs_refgrid_$(tag)")
+    out_root = joinpath(@__DIR__, "..", "model_runs", "gibbs_refgrid_$(tag)")
     for regime in ("Q1", "Q2", "Q3")
         mkpath(joinpath(out_root, regime))
     end

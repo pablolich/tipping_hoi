@@ -6,7 +6,7 @@
 # augmentation for cross-model comparison.
 #
 # Usage:
-#   julia --startup-file=no new_code/add_alpha_eff_taylor.jl <file-or-dir> [...] [--force] [--dry-run]
+#   julia --startup-file=no postprocess/add_alpha_eff_taylor.jl <file-or-dir> [...] [--force] [--dry-run]
 #
 # Flags:
 #   --force      Reprocess JSONs that already have alpha_eff_taylor[_grid].
@@ -14,14 +14,14 @@
 
 using JSON3
 
-include(joinpath(@__DIR__, "utils", "alpha_eff_taylor.jl"))
+include(joinpath(@__DIR__, "..", "utils", "alpha_eff_taylor.jl"))
 
 const SCALAR_MODES = ("gibbs", "lever", "karatayev", "aguade", "mougi", "stouffer")
 const GRID_MODES = ("standard", "unique_equilibrium", "all_negative")
 
 function usage()
     println("""
-Usage: julia --startup-file=no new_code/add_alpha_eff_taylor.jl <path> [<path>...] [--force] [--dry-run]
+Usage: julia --startup-file=no postprocess/add_alpha_eff_taylor.jl <path> [<path>...] [--force] [--dry-run]
 
 Augments each bank JSON with:
   alpha_eff_taylor, P_taylor, Q_taylor                       (scalar modes)

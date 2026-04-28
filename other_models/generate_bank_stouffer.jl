@@ -5,7 +5,7 @@ using LinearAlgebra
 using JSON3
 using Distributions
 
-include(joinpath(@__DIR__, "..", "model_store_utils.jl"))
+include(joinpath(@__DIR__, "..", "utils", "model_store_utils.jl"))
 include(joinpath(@__DIR__, "stouffer_model.jl"))
 
 function usage_error()
