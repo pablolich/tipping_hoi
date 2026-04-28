@@ -13,6 +13,7 @@ const BANK_SAFETY_UE     = 1.2          # safety margin for unique_equilibrium n
 # ─── 2. Shared numerical floors and HC solver settings ─────────────────────
 const ZERO_ABUNDANCE = 1e-9       # extinction / zero-abundance floor; shared by HC solver, ODE callbacks, and final zero-clamp
 const PARAM_TOL      = 1e-9       # bisection convergence in parameter space
+const LAMBDA_TOL     = 1e-9       # eigenvalue/stability tolerance; shared by boundary scan and backtrack
 const MAX_STEPS_PT   = 1_000_000
 const MAX_ITERS      = 8          # max bisection depth
 
@@ -22,7 +23,6 @@ const SCAN_ALPHA_GRID       = collect(LinRange(0.0, 1.0, 11))  # 0.0, 0.1, 0.2, 
 const SCAN_MAX_PERT         = 1000.0
 const SCAN_PREBOUNDARY_FRAC = 0.99
 const SCAN_LINEAR_ALPHA_TOL = 1e-14
-const SCAN_LAMBDA_TOL       = 1e-9
 const SCAN_UNSTABLE_STEPS   = 128
 const SCAN_CHECK_STABILITY  = true   # set false to ignore instability events (only negativity/fold trigger boundaries)
 
@@ -48,7 +48,5 @@ const POST_NUDGE_REL         = 1e-6
 
 # ─── 6. Backtrack perturbation (backtrack_perturbation.jl) ──────────────────
 const BACK_POST_DELTA_ABS   = nothing   # set to Float64 to override (1 - SCAN_PREBOUNDARY_FRAC)
-const BACK_MAX_STEP_RATIO   = 0.3
-const BACK_LAMBDA_TOL       = 1e-9
 const BACK_INVASION_TOL     = 1e-10
 const BACK_EPS_SEED_EXTINCT = nothing   # defaults to 10 * ZERO_ABUNDANCE

@@ -253,7 +253,7 @@ function scan_boundaries_from_params(syst::System,
         p_target = vcat(max_pert_mag .* u, alpha)
         event, t_end, _ = find_event(p_start, p_target,
                                      collect(Float64.(initialsol)), ws,
-                                     ZERO_ABUNDANCE; λ_tol=SCAN_LAMBDA_TOL)
+                                     ZERO_ABUNDANCE; λ_tol=LAMBDA_TOL)
         t_real = real(t_end)
         Δrcrit = (1 - t_real) .* p_target[1:n]
         push!(rows, (ray_id=k, theta=θ[k], u1=u[1], u2=u[2],

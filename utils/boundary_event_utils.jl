@@ -148,7 +148,7 @@ function find_invasion(tracker, x_current, invasion_fn, t_end, t_previous, inv_t
 end
 
 function find_event(p_start, p_target, x_start, ws, tol;
-                    check_stability::Bool=true, λ_tol=SCAN_LAMBDA_TOL,
+                    check_stability::Bool=true, λ_tol=LAMBDA_TOL,
                     check_invasibility::Bool=false,
                     invasion_fn=nothing, invasion_tol::Float64=1e-10)
     start_parameters!(ws.tracker, p_start)

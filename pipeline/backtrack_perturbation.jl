@@ -70,9 +70,9 @@ function build_backtrack_cfg()
     return Dict{String,Any}(
         "check_stability"    => true,
         "check_invasibility" => true,
-        "lambda_tol"         => BACK_LAMBDA_TOL,
+        "lambda_tol"         => LAMBDA_TOL,
         "invasion_tol"       => BACK_INVASION_TOL,
-        "max_step_ratio"     => BACK_MAX_STEP_RATIO,
+        "max_step_ratio"     => 0.3,
         "tol_pos"            => ZERO_ABUNDANCE,
         "tol_neg"            => ZERO_ABUNDANCE,
         "eps_seed_extinct"   => BACK_EPS_SEED_EXTINCT === nothing ? 10.0 * ZERO_ABUNDANCE : Float64(BACK_EPS_SEED_EXTINCT),

@@ -219,7 +219,7 @@ function scan_ray(ws::ScanWorkspace,
     event, t_end, x_crit = find_event(ws.p_start, ws.p_target,
                                        collect(Float64.(x0)), ws, ZERO_ABUNDANCE;
                                        check_stability=SCAN_CHECK_STABILITY,
-                                       λ_tol=SCAN_LAMBDA_TOL)
+                                       λ_tol=LAMBDA_TOL)
     t_real  = real(t_end)
     drcrit  = (1 - t_real) .* ws.p_target
     rcrit   = collect(r0 .+ drcrit)
@@ -244,7 +244,7 @@ function scan_ray_linear_alpha0(A::AbstractMatrix{<:Real},
                                 u::AbstractVector{<:Real};
                                 max_pert_mag::Real,
                                 preboundary_frac::Real=SCAN_PREBOUNDARY_FRAC,
-                                λ_tol::Float64=SCAN_LAMBDA_TOL,
+                                λ_tol::Float64=LAMBDA_TOL,
                                 unstable_scan_steps::Int=SCAN_UNSTABLE_STEPS)
     n = length(r0)
     @assert size(A, 1) == n && size(A, 2) == n
