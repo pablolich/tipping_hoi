@@ -80,7 +80,7 @@ function integrate_and_snap(A_eff::AbstractMatrix{<:Real},
     x0           = nudge.x0
 
     ext_cb = make_extinction_cb(dyn["eps_extinct"])
-    ss_cb  = make_percap_terminate_cb(POST_SS_PERCAP_TOL, POST_SS_U_THRESH)
+    ss_cb  = make_percap_terminate_cb(POST_SS_PERCAP_TOL, ZERO_ABUNDANCE)
     cbs    = CallbackSet(ext_cb, ss_cb)
     prob   = ODEProblem(f!, x0, dyn["tspan"])
     sol    = DifferentialEquations.solve(prob, Tsit5(); reltol=dyn["reltol"], abstol=dyn["abstol"],

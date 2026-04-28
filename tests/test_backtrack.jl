@@ -22,7 +22,7 @@ function make_dyn_cfg()
         "reltol"                 => ODE_RELTOL,
         "abstol"                 => ODE_ABSTOL,
         "saveat"                 => nothing,
-        "eps_extinct"            => ODE_EPS_EXTINCT,
+        "eps_extinct"            => ZERO_ABUNDANCE,
         "post_delta_frac"        => post_delta_frac,
         "post_delta_abs"         => BACK_POST_DELTA_ABS,      # nothing
         "post_delta_abs_default" => 1e-6,

@@ -202,7 +202,7 @@ function main()
         "reltol"      => ODE_RELTOL,
         "abstol"      => ODE_ABSTOL,
         "saveat"      => nothing,
-        "eps_extinct" => ODE_EPS_EXTINCT,
+        "eps_extinct" => ZERO_ABUNDANCE,
     )
     seq = build_seq_cfg()
 

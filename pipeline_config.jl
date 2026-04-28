@@ -10,8 +10,8 @@ const BANK_MU_A          = parse(Float64, get(ENV, "BANK_MU_A", "0.0"))   # mean
 const BANK_MU_B          = parse(Float64, get(ENV, "BANK_MU_B", "0.0"))   # mean of B0 entries; override via env var
 const BANK_SAFETY_UE     = 1.2          # safety margin for unique_equilibrium negdef diagonal shift
 
-# ─── 2. HC solver — shared by boundary_scan.jl and backtrack_perturbation.jl ─
-const ZERO_ABUNDANCE = 1e-9       # extinction / zero-abundance floor
+# ─── 2. Shared numerical floors and HC solver settings ─────────────────────
+const ZERO_ABUNDANCE = 1e-9       # extinction / zero-abundance floor; shared by HC solver, ODE callbacks, and final zero-clamp
 const PARAM_TOL      = 1e-9       # bisection convergence in parameter space
 const MAX_STEPS_PT   = 1_000_000
 const MAX_ITERS      = 8          # max bisection depth
@@ -30,15 +30,13 @@ const SCAN_CHECK_STABILITY  = true   # set false to ignore instability events (o
 const ODE_TSPAN_END   = 10000.0
 const ODE_RELTOL      = 1e-8
 const ODE_ABSTOL      = 1e-10
-const ODE_EPS_EXTINCT = 1e-9
 
 # Per-capita steady-state terminator (post_boundary / backtrack ODE solves).
 # Terminate once |F_i| = |du_i/u_i| < POST_SS_PERCAP_TOL for every species with
-# u_i > POST_SS_U_THRESH.  Species below the threshold are ignored — the
+# u_i > ZERO_ABUNDANCE.  Species below the threshold are ignored — the
 # extinction callback owns them.  For GLV/HOI, |F_i| is O(1) away from
 # equilibrium, so 1e-6 is tight but comfortably within Tsit5 reltol=1e-8.
 const POST_SS_PERCAP_TOL = 1e-6
-const POST_SS_U_THRESH   = ODE_EPS_EXTINCT
 
 # ─── 5. Post-boundary dynamics (post_boundary_dynamics.jl) ──────────────────
 # Set POST_POSTBOUNDARY_FRAC to a Float64 > 1 to override the symmetric default
@@ -53,8 +51,4 @@ const BACK_POST_DELTA_ABS   = nothing   # set to Float64 to override (1 - SCAN_P
 const BACK_MAX_STEP_RATIO   = 0.3
 const BACK_LAMBDA_TOL       = 1e-9
 const BACK_INVASION_TOL     = 1e-10
-const BACK_EPS_SEED_EXTINCT = nothing   # defaults to 10 * ODE_EPS_EXTINCT
-
-# ─── 7. Zero-clamp tolerances — used by integrate_and_snap (Stage 3) ────────
-const SNAP_TOL_POS    = 1e-9
-const SNAP_TOL_NEG    = 1e-9
+const BACK_EPS_SEED_EXTINCT = nothing   # defaults to 10 * ZERO_ABUNDANCE
