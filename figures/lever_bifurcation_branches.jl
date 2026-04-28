@@ -2,7 +2,7 @@
 # Compute bifurcation branches + hysteresis integration for the Lever mutualism model
 # and save a tidy CSV for downstream Python plotting.
 #
-# Output: new_code/figures/data/pauls_idea_branches.csv
+# Output: figures/data/lever_bifurcation_branches.csv
 
 using HomotopyContinuation
 using LinearAlgebra
@@ -511,5 +511,5 @@ df = build_branches_dataframe(
 )
 
 outdir = joinpath(@__DIR__, "data")
-save_branches_table(df, outdir, "pauls_idea_branches")
+save_branches_table(df, outdir, "lever_bifurcation_branches")
 println("Done. Rows: $(nrow(df)), Columns: $(names(df))")

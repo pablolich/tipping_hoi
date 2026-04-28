@@ -149,18 +149,18 @@ the enriched bank JSONs in `data/example_runs/`. The mapping:
 
 | Figure | Producer | Banks required |
 |--------|----------|----------------|
-| Fig 1 | `figures/hysteresis_panels.py` (+ `build_hysteresis_table.jl` to assemble input) | `2_bank_elegant_*` (full 4-stage pipeline) |
-| Fig 2 | `figures/plot_boundaries.py` (+ `figures/generate_boundary_data.jl`, plus `J1.jl` / `J2.jl` polynomial inputs) | n=2 analytical + numerical, no model bank needed |
-| Fig 3 | `figures/figure_3.py` | `2_bank_elegant_50_models_n_4-20_128_dirs_muB_{-0.1, 0.0, 0.1}` |
-| Fig 4 | `figures/figure_4.py` (panels A: `combined_pauls_prevalence_figure.py`, B: `figure_4_panel_b_metrics.py`) | All 5 other-models banks + Gibbs (`pauls_idea_branches.jl` produces panel A's CSV) |
-| Fig S1 | `figures/boundary_types_fig.tex` | TikZ schematic only |
-| Fig S2, S9, S10–S13 | `figures/si_figures.py` | All 4 banks (μ_B variants + unique_equilibrium) |
-| Fig S3 | `figures/plot_mu_grid_panels.py` | 9 banks `2_bank_elegant_*_muA_*_muB_*` |
-| Fig S4 | `figures/si_boundary_types_2x2_all_negative.py` | `2_bank_all_negative_*` |
-| Fig S5 | `figures/alpha_hull_vs_taylor_by_muB.py` | `2_bank_elegant_*_muB_*` (with `alpha_eff_taylor` + `alpha_eff_hull`) |
-| Fig S6 | `figures/combined_pauls_prevalence_figure.py` (Gibbs branch) | Gibbs bank |
-| Fig S7 | `figures/plot_boundary_types_row_gibbs.py` | Gibbs bank (with `alpha_eff_taylor` + `alpha_eff_hull`) |
-| Fig S8 | `figures/figure_4_panel_b_metrics.py` (log-log mode) | All 5 other-models banks + Gibbs |
+| Fig 1 | `figures/hysteresis_two_routes.py` (+ `build_hysteresis_table.jl` to assemble input) | `2_bank_elegant_*` (full 4-stage pipeline) |
+| Fig 2 | `figures/n2_feasibility_domains.py` (+ `figures/generate_n2_boundary_data.jl`, plus `gradual_discriminant.jl` / `abrupt_discriminant.jl` polynomial inputs) | n=2 analytical + numerical, no model bank needed |
+| Fig 3 | `figures/tipping_prevalence_panels.py` | `2_bank_elegant_50_models_n_4-20_128_dirs_muB_{-0.1, 0.0, 0.1}` |
+| Fig 4 | `figures/assemble_published_models_figure.py` (panels A: `lever_and_multimodel_prevalence.py`, B: `multimodel_alpha_eff_metrics.py`) | All 5 other-models banks + Gibbs (`lever_bifurcation_branches.jl` produces panel A's CSV) |
+| Fig S1 | `figures/boundary_types_schematic.tex` | TikZ schematic only |
+| Fig S2, S9, S10–S13 | `figures/si_panels.py` | All 4 banks (μ_B variants + unique_equilibrium) |
+| Fig S3 | `figures/muA_muB_grid_panels.py` | 9 banks `2_bank_elegant_*_muA_*_muB_*` |
+| Fig S4 | `figures/all_negative_boundary_types.py` | `2_bank_all_negative_*` |
+| Fig S5 | `figures/alpha_eff_hull_vs_taylor.py` | `2_bank_elegant_*_muB_*` (with `alpha_eff_taylor` + `alpha_eff_hull`) |
+| Fig S6 | `figures/lever_and_multimodel_prevalence.py` (Gibbs branch) | Gibbs bank |
+| Fig S7 | `figures/gibbs_boundary_types_row.py` | Gibbs bank (with `alpha_eff_taylor` + `alpha_eff_hull`) |
+| Fig S8 | `figures/multimodel_alpha_eff_metrics.py` (log-log mode) | All 5 other-models banks + Gibbs |
 
 Example bank JSONs for each required parameterisation are committed in
 `data/example_runs/`. To reproduce a figure end-to-end from scratch, run the

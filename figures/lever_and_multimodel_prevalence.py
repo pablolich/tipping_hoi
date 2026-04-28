@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-Combined two-panel figure:
-  Panel A (top):    bifurcation diagram from pauls_idea_plot.py
-  Panel B (bottom): scatter plot from boundary_prevalence_ecological_models.py
+Combined two-panel figure on published multispecies ecological models:
+  Panel A (top):    Lever et al. (2014) plant-pollinator bifurcation diagram
+  Panel B (bottom): abrupt-boundary fraction vs. effective non-linearity scatter
 
 Usage:
-    python combined_pauls_prevalence_figure.py [--input PATH] [--output STEM] [--dpi INT]
+    python lever_and_multimodel_prevalence.py [--input PATH] [--output STEM] [--dpi INT]
 """
 
 from __future__ import annotations
@@ -233,7 +233,7 @@ def validate_csv(df: pd.DataFrame) -> pd.DataFrame:
 # Constants from boundary_prevalence_ecological_models.py
 # ---------------------------------------------------------------------------
 
-BASE = "/Users/pablolechon/Desktop/tipping_points_hoi/new_code/model_runs"
+BASE = "model_runs"
 _GIBBS_DIR = f"{BASE}/gibbs_128_dirs_from_gibbs_refgrid_n4to10_50reps_seed12345"
 GIBBS_SOURCES = {
     4:  f"{_GIBBS_DIR}/*_n4_*.json",
@@ -788,8 +788,8 @@ def make_combined_figure(df: pd.DataFrame, groups: dict, output_stem: Path, dpi:
 
 def main() -> None:
     script_dir    = Path(__file__).resolve().parent
-    default_input = script_dir / "data" / "pauls_idea_branches.csv"
-    default_output = script_dir / "pdffiles" / "figure_4"
+    default_input = script_dir / "data" / "lever_bifurcation_branches.csv"
+    default_output = script_dir.parent / "pdffiles" / "si" / "combined_figure"
 
     parser = argparse.ArgumentParser(
         description="Combined bifurcation + scatter two-panel figure."

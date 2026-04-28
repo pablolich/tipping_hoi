@@ -4,7 +4,7 @@ Produces four 3x3 figures (one per boundary type: negative, fold, unstable,
 success). Each panel is one (mu_A, mu_B) cell; within a panel the x-axis is
 alpha and the y-axis is the fraction of directions that hit that boundary
 type — IQR shaded band per n with median line + markers, matching the
-aesthetics of figures/figure_3.py.
+aesthetics of figures/tipping_prevalence_panels.py.
 
 Bank directories are auto-discovered from --input-root by matching
     *_bank_elegant_*_muA_<MUA>_muB_<MUB>
@@ -13,9 +13,9 @@ Boundary scan output is required: each model JSON must already contain
 `scan_results` (run boundary_scan.jl first).
 
 Usage:
-    python figures/plot_mu_grid_panels.py \
+    python figures/muA_muB_grid_panels.py \
         --input-root model_runs \
-        --output-dir figures/pdffiles/mu_grid
+        --output-dir pdffiles/si
 """
 
 import argparse
@@ -116,7 +116,7 @@ def collect_bank_fractions(bank_dir: Path) -> pd.DataFrame:
     return pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
 
 
-# ── colormap helpers (match figure_3.py) ──────────────────────────────────────
+# ── colormap helpers (match tipping_prevalence_panels.py) ───────────────────
 
 def build_colormaps(n_bins: int):
     colors = np.array(sns.color_palette("flare", n_bins))
@@ -135,7 +135,7 @@ def make_color_dicts(n_values, cmap_base, cmap_faded):
     return color_map, color_map_faded
 
 
-# ── prevalence panel (matches figure_3.py::_plot_prevalence) ──────────────────
+# ── prevalence panel (matches tipping_prevalence_panels.py::_plot_prevalence) ─
 
 def _plot_prevalence(
     ax, frac_df: pd.DataFrame, flag: str, n_values: List[int],
@@ -312,11 +312,11 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--input-root", type=Path, default=Path("model_runs"))
     parser.add_argument("--output-dir", type=Path,
-                        default=Path("figures/pdffiles/mu_grid"))
+                        default=Path("pdffiles/si"))
     parser.add_argument("--filename-prefix", type=str, default="mu_grid")
     args = parser.parse_args()
 
-    # ── typography (matches figure_3.py / hysteresis_panels.py) ───────────────
+    # ── typography (matches tipping_prevalence_panels.py / hysteresis_two_routes.py) ─
     plt.rcParams.update({
         "font.family":      "serif",
         "mathtext.fontset": "cm",

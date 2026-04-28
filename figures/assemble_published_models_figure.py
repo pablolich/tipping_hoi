@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """
-Figure 4 — combined two-panel figure with Panel B on alpha_eff_hull:
-  Panel A (left):  bifurcation diagram from combined_pauls_prevalence_figure.py
+Combined two-panel figure on published multispecies ecological models, with
+Panel B on alpha_eff_hull:
+  Panel A (left):  bifurcation diagram from lever_and_multimodel_prevalence.py
   Panel B (right): abrupt-boundary scatter with alpha_eff_hull on the x-axis,
                    rendered on log-log axes with thin errorbars (settings
-                   inherited from figure_4_panel_b_metrics.py / hull variant).
+                   inherited from multimodel_alpha_eff_metrics.py / hull variant).
 
 Usage:
-    python figures/figure_4.py [--input PATH] [--output STEM] [--dpi INT]
+    python figures/assemble_published_models_figure.py [--input PATH] [--output STEM] [--dpi INT]
 """
 
 from __future__ import annotations
@@ -15,9 +16,9 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-import combined_pauls_prevalence_figure as base
-import figure_4_panel_b_metrics as metrics
-import _panel_b_loglog_helpers as ll
+import lever_and_multimodel_prevalence as base
+import multimodel_alpha_eff_metrics as metrics
+import _alpha_eff_loglog_helpers as ll
 
 
 _orig_draw_panel_b = base.draw_panel_b
@@ -48,8 +49,8 @@ def _draw_panel_b_hull_log(ax, groups, label_size, tick_label_size):
 
 def main() -> None:
     script_dir = Path(__file__).resolve().parent
-    default_input = script_dir / "data" / "pauls_idea_branches.csv"
-    default_output = script_dir / "pdffiles" / "figure_4"
+    default_input = script_dir / "data" / "lever_bifurcation_branches.csv"
+    default_output = script_dir.parent / "pdffiles" / "main" / "figure_4"
 
     parser = argparse.ArgumentParser(
         description="Figure 4: Panel A + Panel B (alpha_eff_hull)."

@@ -10,8 +10,8 @@ Layout:
   Callouts   : TikZ lines from bottom-right Abrupt panel to C and G
 
 Usage (run from new_code/):
-    python figures/figure_3.py
-    python figures/figure_3.py --model-runs model_runs --output figures/pdffiles/figure_3.pdf
+    python figures/tipping_prevalence_panels.py
+    python figures/tipping_prevalence_panels.py --model-runs model_runs --output pdffiles/main/figure_3.pdf
 """
 
 import argparse
@@ -565,7 +565,7 @@ def main():
     parser = argparse.ArgumentParser(description="Figure 3: mu_B prevalence + distributions")
     parser.add_argument("--model-runs", type=Path, default=Path("model_runs"))
     parser.add_argument("--output", type=Path,
-                        default=Path("figures/pdffiles/figure_3.pdf"))
+                        default=Path("pdffiles/main/figure_3.pdf"))
     parser.add_argument("--cache", type=Path, default=DEFAULT_CACHE_PATH,
                         help="Pickle file holding the aggregated dataset. "
                              "Loaded if present; otherwise built from --model-runs and saved.")
@@ -573,7 +573,7 @@ def main():
                         help="Force rebuild of the aggregate cache from JSONs.")
     args = parser.parse_args()
 
-    # ── typography (matches hysteresis_panels.py) ───────────────────────────
+    # ── typography (matches hysteresis_two_routes.py) ──────────────────────
     plt.rcParams.update({
         "font.family":      "serif",
         "mathtext.fontset": "cm",
@@ -927,7 +927,14 @@ def main():
     y_brk_top = H_new_y + s              # top of panel H
     y_brk_bot = C_y                       # bottom of panel I
 
-    scheme_dir = Path("figures/pdffiles").resolve()
+    scheme_dir = Path("pdffiles/main").resolve()
+
+    if not shutil.which("pdflatex"):
+        print("  (skipping inset composition -- pdflatex not found)")
+        fig.savefig(args.output, dpi=300)
+        plt.close(fig)
+        print(f"Saved {args.output}")
+        return
 
     with tempfile.TemporaryDirectory() as texdir:
         tmp_fig = Path(texdir) / "main.pdf"

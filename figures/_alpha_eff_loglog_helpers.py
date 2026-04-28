@@ -1,7 +1,9 @@
-"""Shared primitives for the log-log variants of figure 4 panel B.
+"""Shared primitives for the log-log variants of the alpha_eff vs fold-fraction
+panel.
 
-Usable by figure_4_panel_b_hull.py and figure_4_panel_b_taylor.py.  Keeps
-the sentinel-row + broken-axis machinery in one place.
+Used by assemble_published_models_figure.py and the log-log mode of
+multimodel_alpha_eff_metrics.py.  Keeps the sentinel-row + broken-axis
+machinery in one place.
 """
 
 from __future__ import annotations
@@ -12,7 +14,7 @@ import matplotlib.colors as mcolors
 import matplotlib.ticker as mticker
 import numpy as np
 
-import combined_pauls_prevalence_figure as base
+import lever_and_multimodel_prevalence as base
 
 
 # ─── Data clipping ──────────────────────────────────────────────────────────
@@ -112,14 +114,16 @@ def apply_loglog_axes(ax, xs, y_zero: float = 1e-3, y_log_min: float = 1e-2,
     """Apply log-log scales, symmetric y-padding, custom "0"/log-decade
     y-ticks, and broken-axis marks on both y-spines.  Call AFTER drawing
     the points but BEFORE saving."""
-    ax.set_xscale("log")
-    ax.set_yscale("log")
+    ax.set_xscale("log", nonpositive="clip")
+    ax.set_yscale("log", nonpositive="clip")
     if xs:
         xmin = max(min(xs) * 0.5, 1e-8)
         xmax = max(xs) * 2.0
         ax.set_xlim(xmin, xmax)
-
+    else:
+        ax.set_xlim(1e-3, 1.0)
     ax.set_ylim(y_zero / y_top_pad, y_top_pad)
+    ax.autoscale(enable=False)
     ax.set_aspect("auto")
 
     yticks = [y_zero, 1e-2, 1e-1, 1.0]

@@ -1,11 +1,12 @@
 #!/usr/bin/env julia
-# generate_boundary_data.jl — compute all data needed for the boundary figure
-# and save to boundary_data/ as .npy arrays + metadata.json.
+# generate_n2_boundary_data.jl — compute all data needed for the n=2
+# feasibility-domain figure and save to boundary_data/ as .npy arrays +
+# metadata.json.
 #
-# Usage:  julia --startup-file=no generate_boundary_data.jl [outdir]
+# Usage:  julia --startup-file=no generate_n2_boundary_data.jl [outdir]
 #
 # Produces the same data that draw_boundaries_minimal.jl computes internally,
-# but saves it for plotting in Python (plot_boundaries.py).
+# but saves it for plotting in Python (n2_feasibility_domains.py).
 
 using HomotopyContinuation
 using Random
@@ -387,8 +388,8 @@ function heatmap_branch_min_via_tracking(syst::System,
 end
 
 # ════════════════════════════════ main ══════════════════════════════════════
-function main(; neg_path::AbstractString = joinpath(@__DIR__, "J1.jl"),
-               cx_path::AbstractString  = joinpath(@__DIR__, "J2.jl"),
+function main(; neg_path::AbstractString = joinpath(@__DIR__, "gradual_discriminant.jl"),
+               cx_path::AbstractString  = joinpath(@__DIR__, "abrupt_discriminant.jl"),
                alpha_vec::AbstractVector{<:Real} = collect(range(0.001, 0.374, length=5)),
                seed::Int = 52, n::Int = 2, m::Int = 2, ℓ::Int = 2,
                Δr1_range = (-7.1, 7.1), Δr2_range = (-7.1, 7.1),

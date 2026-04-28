@@ -14,9 +14,9 @@
   IQR errorbars + median line (original plot_boundary_types_row.py behaviour)
 
 Usage:
-    python figures/plot_boundary_types_row_gibbs.py \
+    python figures/gibbs_boundary_types_row.py \
         --bank gibbs_128_dirs_from_gibbs_figures_n20_seed12345
-    python figures/plot_boundary_types_row_gibbs.py \
+    python figures/gibbs_boundary_types_row.py \
         --bank 2_bank_balanced_50_models_n_3-20_128_dirs_sA_1.0_sB_1.0_muB_0.5
 """
 
@@ -201,7 +201,7 @@ def main():
     parser.add_argument("--input-root", type=Path, nargs="+", default=None)
     parser.add_argument(
         "--output", type=Path,
-        default=Path("figures/pdffiles/boundary_types_row_gibbs.pdf"),
+        default=Path("pdffiles/si/boundary_types_row_gibbs.pdf"),
     )
     parser.add_argument("--n-bins", type=int, default=N_ALPHA_BINS,
                         help="Number of alpha_eff bins for Gibbs path")

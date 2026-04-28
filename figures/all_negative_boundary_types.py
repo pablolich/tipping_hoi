@@ -20,7 +20,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
 
-from plot_boundary_types_row_gibbs import (
+from gibbs_boundary_types_row import (
     DARK_POINT_SIZE,
     DARK_EDGE_WIDTH,
     load_standard_data,
@@ -46,7 +46,7 @@ def main():
     )
     parser.add_argument(
         "--output", type=Path,
-        default=Path("figures/pdffiles/si_boundary_types_2x2_all_negative.pdf"),
+        default=Path("pdffiles/si/si_boundary_types_2x2_all_negative.pdf"),
     )
     args = parser.parse_args()
 

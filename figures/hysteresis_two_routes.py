@@ -942,7 +942,7 @@ def main() -> None:
     )
     script_dir = Path(__file__).resolve().parent
     data_dir_default = script_dir / "data"
-    output_dir_default = script_dir / "pdffiles"
+    output_dir_default = script_dir.parent / "pdffiles" / "main"
 
     parser.add_argument(
         "--input",

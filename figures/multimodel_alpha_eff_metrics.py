@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
-Figure 4 panel B rendered as a two-panel figure that compares the two
-alternative non-linearity metrics on the x-axis:
+Two-panel figure that compares the two alternative non-linearity metrics on
+the x-axis for the abrupt-boundary fraction across published multispecies
+ecological models:
 
     left  panel: alpha_eff_taylor  (Taylor-expansion-based unified metric)
     right panel: alpha_eff_hull    (L² nonlinearity fraction over convex hull)
@@ -11,7 +12,7 @@ a single legend + diversity colorbar drawn once to the right of the
 right panel.
 
 Usage:
-    python figure_4_panel_b_metrics.py [--output STEM] [--dpi INT] [--log]
+    python multimodel_alpha_eff_metrics.py [--output STEM] [--dpi INT] [--log]
 """
 
 from __future__ import annotations
@@ -27,8 +28,8 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 
-import combined_pauls_prevalence_figure as base
-import _panel_b_loglog_helpers as ll
+import lever_and_multimodel_prevalence as base
+import _alpha_eff_loglog_helpers as ll
 
 
 DEFAULT_CACHE_DIR = Path("figures/cache")
@@ -238,7 +239,7 @@ def make_combined_figure(groups_taylor, groups_hull, output_stem: Path,
 
 def main() -> None:
     script_dir = Path(__file__).resolve().parent
-    default_output = script_dir / "pdffiles" / "figure_4_panel_b_metrics"
+    default_output = script_dir.parent / "pdffiles" / "si" / "figure_4_panel_b_metrics"
 
     parser = argparse.ArgumentParser(
         description="Figure 4 panel B with Taylor (left) and Hull (right) metrics.",

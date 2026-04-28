@@ -17,8 +17,8 @@ JSONs, so SI_hysteresis panels show "no data" until the backtrack stage runs.
 
 Run from new_code/:
 
-    python figures/si_figures.py
-    python figures/si_figures.py --model-runs model_runs --output-dir figures/si
+    python figures/si_panels.py
+    python figures/si_panels.py --model-runs model_runs --output-dir pdffiles/si
 """
 
 import argparse
@@ -31,10 +31,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-# Reuse loaders/aggregators/styling from figure_3.py to guarantee identical
-# data handling with the main-text figure.
+# Reuse loaders/aggregators/styling from tipping_prevalence_panels.py to
+# guarantee identical data handling with the main-text figure.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import figure_3 as f3  # noqa: E402
+import tipping_prevalence_panels as f3  # noqa: E402
 
 
 # ── bank registry ──────────────────────────────────────────────────────────────
@@ -119,7 +119,7 @@ ALL_BOUNDARY_FLAGS = ["negative", "complex", "unstable", "success"]
 def boundary_fractions_from_scan(scan_df: pd.DataFrame) -> pd.DataFrame:
     """Produce prevalence fractions (alpha_value, boundary_type, fraction, n, model_id).
 
-    Applies FLAG_REMAP so `fold → complex` (abrupt), matching figure_3.py, and
+    Applies FLAG_REMAP so `fold → complex` (abrupt), matching tipping_prevalence_panels.py, and
     covers all four boundary classes (gradual, abrupt, unstable, success).
     """
     if scan_df.empty:
@@ -508,7 +508,7 @@ def _save(fig: plt.Figure, stem: Path) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Nature SI figures: four-bank tipping diagnostics")
     parser.add_argument("--model-runs", type=Path, default=Path("model_runs"))
-    parser.add_argument("--output-dir", type=Path, default=Path("figures/pdffiles"))
+    parser.add_argument("--output-dir", type=Path, default=Path("pdffiles/si"))
     args = parser.parse_args()
 
     plt.rcParams.update(NATURE_RCPARAMS)

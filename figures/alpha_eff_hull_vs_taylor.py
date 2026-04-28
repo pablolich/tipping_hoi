@@ -10,7 +10,7 @@ construction (see the closed-form identity in the supplement), so no
 x-axis error bars are drawn.
 
 Usage:
-    python alpha_hull_vs_taylor_by_muB.py [--output STEM] [--dpi INT]
+    python alpha_eff_hull_vs_taylor.py [--output STEM] [--dpi INT]
 """
 
 from __future__ import annotations
@@ -39,7 +39,7 @@ plt.rcParams.update({
 })
 
 
-BASE = "/Users/pablolechon/Desktop/tipping_points_hoi/new_code/model_runs"
+BASE = "model_runs"
 BANKS = [
     (r"$\mu_B = -0.1$", f"{BASE}/2_bank_elegant_50_models_n_4-20_128_dirs_muB_-0.1"),
     (r"$\mu_B = 0.0$",  f"{BASE}/2_bank_elegant_50_models_n_4-20_128_dirs_muB_0.0"),
@@ -98,7 +98,7 @@ def load_bank(directory: str):
     return out
 
 
-# ── colormap (matches figure_3.py) ────────────────────────────────────────────
+# ── colormap (matches tipping_prevalence_panels.py) ─────────────────────────
 
 def build_colormaps(n_bins: int):
     colors    = np.array(sns.color_palette("flare", n_bins))
@@ -315,7 +315,7 @@ def make_figure(output_stem: Path, dpi: int) -> None:
             iax.set_xlim(x_lo_d - x_pad, x_hi_d + x_pad)
         iax.set_ylim(iy_lo, iy_hi)
 
-    # Discrete colorbar (matches figure_3.py treatment): ticks at {4, 12, 20}
+    # Discrete colorbar (matches tipping_prevalence_panels.py): ticks at {4, 12, 20}
     sm = mpl.cm.ScalarMappable(cmap=cmap, norm=norm)
     sm.set_array([])
     last_pos = axes[-1].get_position()
@@ -350,7 +350,7 @@ def make_figure(output_stem: Path, dpi: int) -> None:
 
 def main() -> None:
     script_dir = Path(__file__).resolve().parent
-    default_output = script_dir / "pdffiles" / "alpha_hull_vs_taylor_by_muB"
+    default_output = script_dir.parent / "pdffiles" / "si" / "alpha_hull_vs_taylor_by_muB"
 
     parser = argparse.ArgumentParser(
         description="Scatter: alpha_eff_taylor_grid vs alpha_eff_hull_grid, "

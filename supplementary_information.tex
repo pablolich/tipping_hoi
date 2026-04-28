@@ -145,7 +145,7 @@ Note that $J_F$ coincides with the Jacobian $\frac{\mathrm{d}H}{\mathrm{d}\mathb
 
 \begin{figure}[t]
  \centering
- \includegraphics[width=\linewidth]{si_figures/boundary_types_fig.pdf}
+ \includegraphics[width=\linewidth]{pdffiles/si/boundary_types_fig.pdf}
  \caption{Schematic of the three boundary types detected by the homotopy continuation algorithm as a function of perturbation magnitude $\delta$ (equivalently, deformation parameter $t = 1 - \delta/\delta_{\max}$). (a) Feasibility loss. Two mechanisms are shown: a gradual boundary (blue), where a species equilibrium $x_i$ smoothly declines and crosses the feasibility threshold $x_{\text{tol}}$ at $\delta_{\text{gradual}}$; and an abrupt boundary (violet), where a saddle-node bifurcation annihilates the stable equilibrium at $\delta_{\text{abrupt}}$, causing a discontinuous drop in abundance. The vertical distance from the fold point to zero quantifies the abruptness of the transition. The shaded region between $\delta_{\text{recover}}$ and $\delta_{\text{abrupt}}$ marks the hysteresis zone, where the system cannot recover by simply reversing the perturbation. (b) Stability loss. The leading eigenvalue $\lambda_{\max}$ increases with $\delta$ and crosses the stability threshold $-\lambda_{\text{tol}}$ at $\delta_{\text{unstable}}$, signalling loss of dynamical stability before any species becomes infeasible.}
  \label{fig:algorithm_scheme}
 \end{figure}
@@ -364,7 +364,7 @@ with spectra $\-n \mu_A$ (mult. $n-1$), $0$ (eigenvector $\mathbf{1}$) and $n^2\
 
 \begin{figure}[ht]
 \centering
-\includegraphics[width=\textwidth]{si_figures/figure_spectral_density.pdf}
+\includegraphics[width=\textwidth]{pdffiles/si/figure_spectral_density.pdf}
 \caption{Spectral density of the symmetric HOI aggregation matrix~$S_{\hat{B}}$ for $n = 32$ across the three $\mu_B$~regimes. In the baseline ($\mu_B = 0$), the spectrum is centred at zero. In the facilitative ($\mu_B > 0$) and competitive ($\mu_B < 0$) regimes, the mean-field eigenvalues of $\mathbb{E}[S_{\hat{B}}]$ shift the $(n{-}1)$-fold bulk away from the origin (to the left under facilitation, to the right under competition), while the top eigenvalue (near the $\bone$ direction) remains near the fluctuation edge. The pairwise matrix $S_A$ exhibits analogous behaviour across $\mu_A$ regimes, with the spike scaled by $n\mu_A$ rather than $n^2\mu_B$.}
 \label{fig:spectral_density}
 \end{figure}
@@ -388,7 +388,7 @@ Ecologically, this reflects a basic constraint: predominantly competitive commun
 
 \begin{figure}[t]
     \centering
-    \includegraphics[width=0.75\linewidth]{si_figures/mu_grid_complex.pdf}
+    \includegraphics[width=0.75\linewidth]{pdffiles/si/mu_grid_complex.pdf}
     \caption{\textbf{Fold-boundary prevalence across the $(\mu_A, \mu_B)$ plane.} Each panel shows the fraction of perturbation directions terminating at a fold (abrupt) boundary as a function of HOI strength $\alpha$, for community sizes $n = 5$--$10$ (colours). Columns vary the mean higher-order interaction $\mu_B \in \{-0.1,\,0,\,0.1\}$ (competitive, mixed, and facilitative HOI regimes); rows vary the mean pairwise interaction $\mu_A \in \{-0.1,\,0,\,0.1\}$ (competitive, mixed, and facilitative pairwise regimes). Points are medians across 50 community replicates at each $(n, \alpha)$ condition; shaded bands span the interquartile range. The central row ($\mu_A = 0$, all three values of $\mu_B$) reproduces Fig.~3 of the main text. The six surrounding panels confirm that the three qualitative patterns established in the main text---(i) fold prevalence rises monotonically with $\alpha$, (ii) facilitative HOIs ($\mu_B > 0$) produce the earliest and most complete transition to the fold-dominated regime, and (iii) the effect of community size on fold prevalence reverses sign across $\mu_B$ (diversity suppresses folds when $\mu_B \le 0$ but amplifies them when $\mu_B > 0$)---are robust to the mean sign of pairwise interactions. Variation in $\mu_A$ modulates the quantitative onset of fold dominance but does not alter these qualitative trends.}
     \label{fig:mu_grid}
 \end{figure}
@@ -400,7 +400,7 @@ Ecologically, this reflects a basic constraint: predominantly competitive commun
 
 \begin{figure}[t]
     \centering
-    \includegraphics[width=0.65\linewidth]{si_figures/si_boundary_types_2x2_all_negative.pdf}
+    \includegraphics[width=0.65\linewidth]{pdffiles/si/si_boundary_types_2x2_all_negative.pdf}
     \caption{\textbf{Boundary-type prevalence under the purely competitive parameterization.} Each panel shows the fraction of perturbation directions terminating at a given boundary type as a function of HOI strength $\alpha$, for community sizes $n = 4$--$10$ (colours). Columns correspond to abrupt (fold) and gradual (negative-transcritical) boundaries. \textbf{Top row:} full bank, containing every replicate with a feasible equilibrium at $\alpha = 0$, including those that later lose stability as $\alpha$ increases. \textbf{Bottom row:} stable-throughout subset, restricted to replicates whose coexistence equilibrium $\bx^\star = \bone$ remains locally stable across the entire $\alpha$ grid, matching the stability condition imposed by construction in the main-text protocol. Points are medians across replicates; bars span the interquartile range. Numerals in the bottom row report the replicate count contributing to each point. In both subsets, fold prevalence rises monotonically with $\alpha$ while gradual-boundary prevalence falls, matching the qualitative pattern of the main text and of Fig.~\ref{fig:mu_grid}. The signature therefore persists in a sampling protocol that removes both the zero-sum-diagonal construction and the spectral rescaling used in the main text, retaining only a planted equilibrium for a purely competitive community.}
     \label{fig:all_negative}
 \end{figure}
@@ -572,7 +572,7 @@ The need to switch diagnostics between panels is not a deficiency of either meas
 
 \begin{figure}[h]
   \centering
-  \includegraphics[width=\linewidth]{si_figures/alpha_hull_vs_taylor_by_muB.pdf}
+  \includegraphics[width=\linewidth]{pdffiles/si/alpha_hull_vs_taylor_by_muB.pdf}
 \caption{%
     \textbf{Hull nonlinearity vs.\ Taylor nonlinearity for the three main-text banks.}
     Mean hull-based effective nonlinearity $\alpha^{\mathrm{hull}}_{\mathrm{eff}}$ (Section~\ref{sec:alpha_hull}, Eq.~\eqref{eq:alpha_hull_def}) plotted against the local Taylor metric $\alpha^{\mathrm{Taylor}}_{\mathrm{eff}}$ (Section~\ref{sec:alpha_taylor}, Eq.~\eqref{eq:alpha_taylor_def}) for each of the three main-text parameterizations: \textbf{(a)} $\mu_B = -0.1$, \textbf{(b)} $\mu_B = 0.0$, \textbf{(c)} $\mu_B = 0.1$. Each curve corresponds to a fixed diversity $n$ (colors). The top axis (secondary) shows the original mixing parameter $\alpha$ via the closed-form inversion $\alpha = \alpha^{\mathrm{Taylor}}_{\mathrm{eff}}/(1 - 2\alpha^{\mathrm{Taylor}}_{\mathrm{eff}})$ implied by Eq.~\eqref{eq:alpha_taylor_elegant}; both $x$-axes therefore index the same grid. Markers and lines show the mean across $\sim 50$ replicates per cell; vertical error bars show $\pm 1$ standard deviation of $\alpha^{\mathrm{hull}}_{\mathrm{eff}}$ across replicates. No horizontal error bars are drawn because $\alpha^{\mathrm{Taylor}}_{\mathrm{eff}}$ is, by the closed-form identity Eq.~\eqref{eq:alpha_taylor_elegant}, identical for every replicate of every bank. Insets show the fold prevalence as a function of the nonlocal nonlinearity $\alpha^{\mathrm{hull}}_{\mathrm{eff}}$; capturing a tight correlation for the first two banks, and reflecting the original lack of correlation that alpha had with fold prevalence for the third bank.}
@@ -608,7 +608,7 @@ Figure~\ref{fig:si_gibbs_stability} shows the probability of stability across th
 
 \begin{figure}[t]
  \centering
- \includegraphics[width=\linewidth]{si_figures/combined_figure.pdf}
+ \includegraphics[width=\linewidth]{pdffiles/si/combined_figure.pdf}
  \caption{\textbf{Probability of stability across the three Gibbs regimes, replicating the parameter sweeps of Gibbs et al.\ with $S = 20$ species.} (a,\,b)~Regime Q1: P(stability) as a function of mean pairwise interaction strength $\mu_A$ (a) and standard deviation $\sigma_A$ (b), with HOI coefficients constrained via Dirichlet sampling. (c,\,d)~Regime Q2: P(stability) as a function of target abundance $\bar{x}$ (c) and noise in target abundances (d). (e--g)~Regime Q3: P(stability) as a function of anti-correlation strength $p$ for three values of $\mu_A$, with curves colored by $\sigma_A \in \{0.5,\, 1.0,\, 1.5\}$. Filled circles indicate parameterizations with $P(\text{stability}) > 0.9$; open circles denote those below the threshold.}
  \label{fig:si_gibbs_stability}
 \end{figure}
@@ -626,7 +626,7 @@ where $k$ index the perturbation direction, and applied the boundary-detection a
 
 \begin{figure}[h]
  \centering
- \includegraphics[width=\linewidth]{si_figures/boundary_types_row_gibbs_taylor_hull.pdf}
+ \includegraphics[width=\linewidth]{pdffiles/si/boundary_types_row_gibbs_taylor_hull.pdf}
  \caption{\textbf{Boundary-type prevalence vs.\ effective nonlinearity strength in the Gibbs bank    
   ($n=20$).} Each point aggregates one parameterization across its replicates ($47$ parameterizations, $4612$ stable systems, $128$ random parameter rays per system). Marker position gives the means of the effective nonlinearity $\alpha_{\mathrm{eff}}$ on the $x$-axis and the fraction of rays terminating in the indicated boundary type on the $y$-axis; error bars span the $25$th--$75$th percentile across replicates. Marker shape encodes the parameter regime, color encodes the parameterization id (filled circles in Fig. \ref{fig:si_gibbs_stability}. \textbf{A, D:} fraction of rays ending at a fold (abrupt loss of coexistence). \textbf{B, E:} fraction ending at a negative-crossing boundary (gradual loss). \textbf{C, F:} fraction ending at a loss-of-stability boundary. \textbf{Top row (A--C):} $x$-axis is the Taylor-expansion estimate $\alpha_{\mathrm{eff}}^{\mathrm{Taylor}}$. \textbf{Bottom row (D--F):} $x$-axis is the convex-hull estimate $\alpha_{\mathrm{eff}}^{\mathrm{hull}}$.} 
  \label{fig:si_gibbs_robustness}
@@ -677,7 +677,7 @@ Unlike the canonical GLV-HOI models studied in the main text, where a mixing par
 
 \begin{figure}
     \centering
-    \includegraphics[width=\linewidth]{si_figures/figure_4_panel_b_metrics_loglog.pdf}
+    \includegraphics[width=\linewidth]{pdffiles/si/figure_4_panel_b_metrics_loglog.pdf}
     \caption{\textbf{Fraction of abrupt (fold) boundaries versus two alternative
       non-linearity metrics.}
       Each marker is a bank of models grouped by family and diversity $n$; vertical and horizontal bars show the standard deviation of the fold fraction and of the non-linearity metric within the group, respectively. (\textbf{b})~Non-linearity strength measured by the Taylor-expansion unified metric $\alpha_\mathrm{eff}^{\mathrm{Taylor}}$. (\textbf{c})~Non-linearity strength measured by $\alpha_\mathrm{eff}^{\mathrm{hull}}$, the $L^2$ fraction of the nominal vector field contributed by higher-order terms, integrated over the convex hull of the stable equilibrium and the pre-boundary states. Marker shape and colour identify the model family (legend, right); marker opacity encodes species richness~$n$ (colourbar, right). Both panels share the same $y$-axis.}
@@ -1100,7 +1100,7 @@ Combining via Weyl's inequality:
 
 \begin{figure}[ht]
 \centering
-\includegraphics[width=\textwidth]{si_figures/figure_verify_bounds.pdf}
+\includegraphics[width=\textwidth]{pdffiles/si/figure_verify_bounds.pdf}
 \caption{Numerical verification of the Weyl upper bound on the spectral thresholds $\delta_A$ and~$\delta_B$ across the three regimes. Each matrix is decomposed into its hollow Wigner part~$W$ and the diagonal~$D$ inherited from the zero-sum shift (baseline and facilitative regimes), or evaluated directly (competitive regime). Weyl's inequality gives the exact (non-asymptotic) bound $\lambda_{\max}(\tilde{S}) \leq \lambda_{\max}(W) + \lambda_{\max}(D)$ in the first two regimes, shown by orange triangles (medians) and shaded bands (inter-quartile ranges). Semi-transparent dots are individual replicates; filled circles and coloured bands show their medians and IQRs. The dashed lines are the asymptotic upper bounds from Eqs.~\eqref{eq:rmt_A}--\eqref{eq:rmt_B_comp}. The exact Weyl bound holds for every replicate at every~$n$ in the baseline and facilitative regimes; in the competitive regime, the $O(n)$ and $O(n^2)$ scalings of $\delta_A$ and $\delta_B$ are recovered.}
 \label{fig:thresholds}
 \end{figure}
@@ -1156,7 +1156,7 @@ where the random component $Y_{ij}$ is initialized from $\mathrm{Uniform}(0, 1/S
 \section{Full simulation results figures}
 \begin{figure}[b]
  \centering
- \includegraphics[width=\linewidth]{si_figures/si_boundary_fractions.pdf}
+ \includegraphics[width=\linewidth]{pdffiles/si/si_boundary_fractions.pdf}
  \caption{Fraction of perturbation directions leading to each boundary type as a function of HOI strength $\alpha$, across community sizes $n = 4$--$20$. Columns correspond to four simulation banks: unique equilibrium parameterization, $\mu_B = -0.1$, $\mu_B = 0$, and $\mu_B = 0.1$. Rows show the fraction of directions classified as abrupt (\textbf{A}--\textbf{D}), gradual (\textbf{E}--\textbf{H}), unstable (\textbf{I}--\textbf{L}), and successful (\textbf{M}--\textbf{P}). Lines indicate medians across model replicates; shaded bands span the interquartile range. Colours encode community size $n$. As $\alpha$ increases, the fraction of abrupt boundaries grows while gradual boundaries decline, with the transition sharpening for larger $n$ and positive $\mu_B$. The successful-direction fraction increases monotonically with $\alpha$ and $n$ for the unique equilibrium and facilitative parameterizations, while it remains very low for the competitive and mixed parameterizations.}
  \label{fig:placeholder}
 \end{figure}
@@ -1164,7 +1164,7 @@ where the random component $Y_{ij}$ is initialized from $\mathrm{Uniform}(0, 1/S
 
 \begin{figure}
  \centering
- \includegraphics[width=\linewidth]{si_figures/si_delta_c.pdf}
+ \includegraphics[width=\linewidth]{pdffiles/si/si_delta_c.pdf}
  \caption{Critical perturbation magnitude $\delta_c$ as a function of HOI strength $\alpha$, across community sizes $n = 4$--$20$. Columns correspond to four simulation banks: unique equilibrium, $\mu_B = -0.1$, $\mu_B = 0$, and $\mu_B = 0.1$. Rows show $\delta_c$ for abrupt (\textbf{A}--\textbf{D}) and gradual (\textbf{E}--\textbf{H}) Lines indicate medians across model replicates; shaded bands span the interquartile range. Colours encode community size $n$. Panel \textbf{A} display ``no data'' because the abrupt boundary type is absent for the unique equilibrium parameterization.
 }
  \label{fig:placeholder}
@@ -1173,7 +1173,7 @@ where the random component $Y_{ij}$ is initialized from $\mathrm{Uniform}(0, 1/S
 
 \begin{figure}
  \centering
- \includegraphics[width=\linewidth]{si_figures/si_xmin.pdf}
+ \includegraphics[width=\linewidth]{pdffiles/si/si_xmin.pdf}
  \caption{Minimum species abundance $x_{\min}$ at the tipping boundary as a function of HOI strength $\alpha$, across community sizes $n = 4$--$20$. Columns correspond to four simulation banks: unique equilibrium, $\mu_B = -0.1$, $\mu_B = 0$, and $\mu_B = 0.1$. Rows show $x_{\min}$ for abrupt (\textbf{A}--\textbf{D}) and gradual (\textbf{E}--\textbf{H}) boundary types. Lines indicate medians across model replicates; shaded bands span the interquartile range. Colours encode community size $n$. For abrupt boundaries, $x_{\min}$ remains strictly positive, confirming that species abundances have not yet reached zero when the fold bifurcation occurs. For gradual boundaries, $x_{\min}$ is effectively zero ($\sim 10^{-6}$), consistent with the boundary being defined by a species abundance crossing zero.}
  \label{fig:placeholder}
 \end{figure}
@@ -1181,7 +1181,7 @@ where the random component $Y_{ij}$ is initialized from $\mathrm{Uniform}(0, 1/S
 
 \begin{figure}
  \centering
- \includegraphics[width=\linewidth]{si_figures/si_hysteresis.pdf}
+ \includegraphics[width=\linewidth]{pdffiles/si/si_hysteresis.pdf}
  \caption{Hysteresis amount $(\delta_{c} - \delta_{\mathrm{recover}})$ as a function of HOI strength $\alpha$, across community sizes $n = 4$--$20$. Columns correspond to four simulation banks: unique equilibrium, $\mu_B = -0.1$, $\mu_B = 0$, and $\mu_B = 0.1$. Rows show hysteresis for abrupt (\textbf{A}--\textbf{D}) and gradual (\textbf{E}--\textbf{H}) boundary types. The hysteresis amount measures the difference between the forward critical perturbation and the perturbation at which the system returns to its original state upon reversal. Lines indicate medians across model replicates; shaded bands span the interquartile range. Colours encode community size $n$. Abrupt boundaries exhibit hysteresis while gradual ones do not, consistent with the irreversibility expected from fold bifurcations.}
  \label{fig:placeholder}
 \end{figure}
