@@ -1028,7 +1028,7 @@ function usage_text()
       --model-id ID         Override model ID used in output rows/path fallback
       --results-root PATH   Legacy results model root (contains n_*/sys_*_pass*.arrow)
       --bank-root PATH      Legacy bank model root (contains n_*/sys_*_bank.jld2)
-      --output-dir PATH     Output folder for *.arrow/*.csv (default: new_code/figures/data)
+      --output-dir PATH     Output folder for *.arrow/*.csv (default: data/figure_inputs/fig1_hysteresis, relative to repo root)
       --help, -h            Show this message and exit
 
     Notes:
@@ -1044,7 +1044,7 @@ function parse_args(args::Vector{String})
     model_id_override = nothing
     results_root_override = nothing
     bank_root_override = nothing
-    output_dir = joinpath(@__DIR__, "data")
+    output_dir = normpath(joinpath(@__DIR__, "..", "data", "figure_inputs", "fig1_hysteresis"))
     show_help = false
     i = 1
     while i <= length(args)

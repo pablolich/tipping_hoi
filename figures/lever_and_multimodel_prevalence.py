@@ -1,16 +1,15 @@
-#!/usr/bin/env python3
 """
-Combined two-panel figure on published multispecies ecological models:
-  Panel A (top):    Lever et al. (2014) plant-pollinator bifurcation diagram
-  Panel B (bottom): abrupt-boundary fraction vs. effective non-linearity scatter
+Library module providing the building blocks for Figure 4 (main text):
+  - draw_panel_a (Lever et al. (2014) plant-pollinator bifurcation diagram)
+  - draw_panel_b (abrupt-boundary fraction vs. effective non-linearity scatter)
+  - make_combined_figure (assembles both panels into one PDF)
 
-Usage:
-    python lever_and_multimodel_prevalence.py [--input PATH] [--output STEM] [--dpi INT]
+Imported by figures/assemble_published_models_figure.py, which produces
+the canonical figure_4.pdf in pdffiles/main/.
 """
 
 from __future__ import annotations
 
-import argparse
 import glob
 import json
 from collections import defaultdict
@@ -773,47 +772,9 @@ def make_combined_figure(df: pd.DataFrame, groups: dict, output_stem: Path, dpi:
     draw_panel_b(ax_b, groups, label_size, tick_label_size)
 
     output_stem.parent.mkdir(parents=True, exist_ok=True)
-    png_path = output_stem.with_suffix(".png")
     pdf_path = output_stem.with_suffix(".pdf")
-    fig.savefig(png_path, dpi=dpi, bbox_inches="tight", pad_inches=0.03)
-    fig.savefig(pdf_path,           bbox_inches="tight", pad_inches=0.03)
+    fig.savefig(pdf_path, bbox_inches="tight", pad_inches=0.03)
     plt.close(fig)
-    print(f"[INFO] Wrote PNG: {png_path}")
     print(f"[INFO] Wrote PDF: {pdf_path}")
 
 
-# ---------------------------------------------------------------------------
-# CLI
-# ---------------------------------------------------------------------------
-
-def main() -> None:
-    script_dir    = Path(__file__).resolve().parent
-    default_input = script_dir / "data" / "lever_bifurcation_branches.csv"
-    default_output = script_dir.parent / "pdffiles" / "si" / "combined_figure"
-
-    parser = argparse.ArgumentParser(
-        description="Combined bifurcation + scatter two-panel figure."
-    )
-    parser.add_argument("--input",  default=str(default_input),
-                        help=f"Input CSV for Panel A (default: {default_input})")
-    parser.add_argument("--output", default=str(default_output),
-                        help=f"Output stem without extension (default: {default_output})")
-    parser.add_argument("--dpi",    type=int, default=300,
-                        help="PNG resolution (default: 300)")
-    args = parser.parse_args()
-
-    output_stem = Path(args.output)
-    if output_stem.suffix:
-        output_stem = output_stem.with_suffix("")
-
-    df = load_csv(Path(args.input))
-    df = validate_csv(df)
-
-    print("[INFO] Building Panel B groups from model runs...")
-    groups = build_groups()
-
-    make_combined_figure(df, groups, output_stem, args.dpi)
-
-
-if __name__ == "__main__":
-    main()

@@ -924,13 +924,11 @@ def plot_panels(
                 lbl.set_fontsize(delta_c_size)
 
     output_stem.parent.mkdir(parents=True, exist_ok=True)
-    png_path = output_stem.with_suffix(".png")
     pdf_path = output_stem.with_suffix(".pdf")
 
-    fig.savefig(png_path, dpi=dpi, bbox_inches="tight", pad_inches=0.03)
     fig.savefig(pdf_path, bbox_inches="tight", pad_inches=0.03)
     plt.close(fig)
-    return png_path, pdf_path
+    return pdf_path
 
 
 def main() -> None:
@@ -941,15 +939,17 @@ def main() -> None:
         )
     )
     script_dir = Path(__file__).resolve().parent
-    data_dir_default = script_dir / "data"
-    output_dir_default = script_dir.parent / "pdffiles" / "main"
+    repo_root = script_dir.parent
+    data_dir_default = repo_root / "data" / "figure_inputs" / "fig1_hysteresis"
+    output_dir_default = repo_root / "pdffiles" / "main"
 
     parser.add_argument(
         "--input",
-        default=str(script_dir / "data" / "panel_candidates" / "sys_12_alphaidx_5_ray_60_row_460_hysteresis_table.arrow"),
+        default=str(data_dir_default / "sys_12_alphaidx_5_ray_60_row_460_hysteresis_table.arrow"),
         help=(
             "Path to .arrow (preferred) or .csv table. If omitted, defaults to "
-            "sys_12_alphaidx_5_ray_60_row_460_hysteresis_table.arrow in data/panel_candidates/."
+            "sys_12_alphaidx_5_ray_60_row_460_hysteresis_table.arrow in "
+            "data/figure_inputs/fig1_hysteresis/."
         ),
     )
     parser.add_argument(
@@ -988,9 +988,8 @@ def main() -> None:
     log_row_counts(df)
 
     selected_by_boundary, _ = select_candidates_by_boundary(df)
-    png_path, pdf_path = plot_panels(selected_by_boundary, output_stem, args.dpi, ymax_fold=args.ymax_fold)
+    pdf_path = plot_panels(selected_by_boundary, output_stem, args.dpi, ymax_fold=args.ymax_fold)
 
-    print(f"[INFO] Wrote output PNG: {png_path}")
     print(f"[INFO] Wrote output PDF: {pdf_path}")
 
 

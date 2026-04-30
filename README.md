@@ -33,7 +33,10 @@ tipping_hoi/
 ├── other_models/              # Five published multispecies models (Fig 4)
 ├── figures/                   # Python figure scripts + Julia data generators
 ├── tests/                     # Julia test suite
-├── data/example_runs/         # Example enriched bank JSONs (one per parameterisation)
+├── data/
+│   ├── example_runs/                 # Bank JSONs (one placeholder per bank ships; full datasets on Zenodo)
+│   ├── figure_inputs/                # Precomputed derived tables for figure scripts (Figs 1, 2, 4 panel A)
+│   └── figure_cache/                 # Regenerated cache for figure scripts (gitignored, rebuilt on demand)
 ├── Project.toml / Manifest.toml      # Julia dependency lock
 └── requirements.txt           # Python dependencies (figure scripts)
 ```
@@ -64,8 +67,9 @@ Windows is untested.
 **Hardware.** No non-standard hardware required for the demo or for running the
 pipeline on small banks (n ≤ 10, ≤ 50 models). The full Fig 3 / Fig S3 banks
 (n up to 20, three μ_B values × 50 models × 128 directions × 11 α values) were
-produced on a SLURM cluster. None of this is required to reproduce the figures
-from the example banks shipped under `data/example_runs/`.
+produced on a SLURM cluster. To reproduce the paper figures without re-running
+the pipeline, download the precomputed banks from Zenodo — see
+[Reproducing the paper](#reproducing-the-paper).
 
 ---
 
@@ -159,21 +163,52 @@ on a freshly generated bank, see [Quick start](#quick-start) below.
 
 ## Reproducing the paper
 
-Each paper figure is produced by a Python script in `figures/` reading the
-example bank JSONs in `data/example_runs/`. Mapping:
+### Data availability
+
+The full simulation banks used to make the paper figures (≈ 6 GB) are too
+large to ship in this repository. They are archived on Zenodo:
+
+> **Lechón-Alonso et al. (2026)** — *Simulation results for "Tipping points are
+> typical in ecosystems with higher-order interactions"*.
+> Zenodo, <https://zenodo.org/records/19892157>
+> (DOI: `10.64898/2026.04.24.720639`).
+
+The repository ships **one example model JSON per bank** under
+`data/example_runs/<bank>/` — enough for the [Demo](#demo) and to inspect the
+file format, but not enough for the figure scripts, which aggregate over the
+full 50 models per `n`.
+
+Each Zenodo `.zip` is named exactly like its target bank directory, and the
+shipped placeholder is one of the 50 models inside the matching archive. So
+populating a bank reduces to a single `unzip` per figure — the placeholder is
+overwritten with an identical copy and the remaining 49 models are added:
+
+```bash
+curl -L -O https://zenodo.org/records/19892157/files/2_bank_standard_50_models_n_4-20_128_dirs_muB_0.0.zip
+unzip -d data/example_runs/ 2_bank_standard_50_models_n_4-20_128_dirs_muB_0.0.zip
+```
+
+The Zenodo banks already contain Stage 2/3/4 results and α_eff
+post-processing, so figure scripts can be run directly on the downloaded data
+without re-running any Julia pipeline.
+
+### Figure → bank mapping
+
+Each paper figure is produced by a Python script in `figures/`. The "Banks
+required" column lists bank directory names — append `.zip` to obtain the
+matching Zenodo filename.
 
 | Figure | Producer | Banks required |
 |--------|----------|----------------|
-| Fig 1 | `figures/hysteresis_two_routes.py` (+ `build_hysteresis_table.jl` to assemble input) | `2_bank_standard_*` (full 4-stage pipeline) |
-| Fig 2 | `figures/n2_feasibility_domains.py` (+ `figures/generate_n2_boundary_data.jl`, plus `gradual_discriminant.jl` / `abrupt_discriminant.jl` polynomial inputs) | n=2 analytical + numerical, no model bank needed |
+| Fig 1 | `figures/hysteresis_two_routes.py` | precomputed table shipped at `data/figure_inputs/fig1_hysteresis/` (regenerate via `build_hysteresis_table.jl` from a `2_bank_standard_*` Stage-4 bank) |
+| Fig 2 | `figures/n2_feasibility_domains.py` | precomputed boundary data shipped at `data/figure_inputs/fig2_n2_feasibility/` (regenerate via `figures/generate_n2_boundary_data.jl` + `gradual_discriminant.jl` / `abrupt_discriminant.jl`) |
 | Fig 3 | `figures/tipping_prevalence_panels.py` | `2_bank_standard_50_models_n_4-20_128_dirs_muB_{-0.1, 0.0, 0.1}` |
-| Fig 4 | `figures/assemble_published_models_figure.py` (panels A: `lever_and_multimodel_prevalence.py`, B: `multimodel_alpha_eff_metrics.py`) | All 5 other-models banks + Gibbs (`lever_bifurcation_branches.jl` produces panel A's CSV) |
+| Fig 4 | `figures/assemble_published_models_figure.py` (panel A: `lever_and_multimodel_prevalence.py`, panel B: `multimodel_alpha_eff_metrics.py`) | Panel A: shipped CSV at `data/figure_inputs/fig4_lever_branches/` (regenerate via `figures/lever_bifurcation_branches.jl`). Panel B: all 5 other-models banks + Gibbs |
 | Fig S1 | TikZ schematic in paper source (not reproduced from this repo) | — |
 | Fig S2, S9, S10–S13 | `figures/si_panels.py` | All 4 banks (μ_B variants + unique_equilibrium) |
 | Fig S3 | `figures/muA_muB_grid_panels.py` | 9 banks `2_bank_standard_*_muA_*_muB_*` |
 | Fig S4 | `figures/all_negative_boundary_types.py` | `2_bank_all_negative_*` |
 | Fig S5 | `figures/alpha_eff_hull_vs_taylor.py` | `2_bank_standard_*_muB_*` (with `alpha_eff_taylor` + `alpha_eff_hull`) |
-| Fig S6 | `figures/lever_and_multimodel_prevalence.py` (Gibbs branch) | Gibbs bank |
 | Fig S7 | `figures/gibbs_boundary_types_row.py` | Gibbs bank (with `alpha_eff_taylor` + `alpha_eff_hull`) |
 | Fig S8 | `figures/multimodel_alpha_eff_metrics.py` (log-log mode) | All 5 other-models banks + Gibbs |
 

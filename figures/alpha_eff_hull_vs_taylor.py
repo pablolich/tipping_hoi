@@ -143,7 +143,7 @@ def draw_panel(ax, data, color_map, label_size, tick_label_size,
         ax.set_ylabel(r"$\alpha_\mathrm{eff}^{\mathrm{hull}}$",
                       fontsize=label_size)
     ax.tick_params(axis="both", labelsize=tick_label_size)
-    ax.grid(True, linewidth=0.3, alpha=0.4)
+    ax.grid(False)
 
     secax = ax.secondary_xaxis(
         "top", functions=(_alpha_eff_to_alpha, _alpha_to_alpha_eff))
@@ -169,7 +169,7 @@ def draw_panel(ax, data, color_map, label_size, tick_label_size,
         iax.scatter(rec[x_mean_key], rec["fold_mean"],
                     color=color_map[n], s=10, alpha=0.9,
                     edgecolors="none", zorder=3)
-    iax.grid(True, linewidth=0.25, alpha=0.3)
+    iax.grid(False)
     iax.set_facecolor((1.0, 1.0, 1.0, 0.85))
     iax.tick_params(axis="both", labelsize=tick_label_size * 0.8,
                     length=2, pad=1.5)
@@ -339,12 +339,9 @@ def make_figure(output_stem: Path, dpi: int) -> None:
     cax.set_title("$n$", fontsize=label_size, pad=4, loc="center")
 
     output_stem.parent.mkdir(parents=True, exist_ok=True)
-    png_path = output_stem.with_suffix(".png")
     pdf_path = output_stem.with_suffix(".pdf")
-    fig.savefig(png_path, dpi=dpi, bbox_inches="tight", pad_inches=0.03)
-    fig.savefig(pdf_path,           bbox_inches="tight", pad_inches=0.03)
+    fig.savefig(pdf_path, bbox_inches="tight", pad_inches=0.03)
     plt.close(fig)
-    print(f"[INFO] Wrote PNG: {png_path}")
     print(f"[INFO] Wrote PDF: {pdf_path}")
 
 

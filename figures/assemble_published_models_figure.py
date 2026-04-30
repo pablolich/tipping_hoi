@@ -49,8 +49,9 @@ def _draw_panel_b_hull_log(ax, groups, label_size, tick_label_size):
 
 def main() -> None:
     script_dir = Path(__file__).resolve().parent
-    default_input = script_dir / "data" / "lever_bifurcation_branches.csv"
-    default_output = script_dir.parent / "pdffiles" / "main" / "figure_4"
+    repo_root = script_dir.parent
+    default_input = repo_root / "data" / "figure_inputs" / "fig4_lever_branches" / "lever_bifurcation_branches.csv"
+    default_output = repo_root / "pdffiles" / "main" / "figure_4"
 
     parser = argparse.ArgumentParser(
         description="Figure 4: Panel A + Panel B (alpha_eff_hull)."

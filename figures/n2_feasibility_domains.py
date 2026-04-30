@@ -44,8 +44,9 @@ plt.rcParams.update({
 # ═══════════════════════════ configuration ═══════════════════════════════════
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-DEFAULT_DATA_DIR = os.path.join(SCRIPT_DIR, "boundary_data")
-DEFAULT_OUTFILE = os.path.join(os.path.dirname(SCRIPT_DIR), "pdffiles", "main", "alphas_deltar_row_py.pdf")
+REPO_ROOT = os.path.dirname(SCRIPT_DIR)
+DEFAULT_DATA_DIR = os.path.join(REPO_ROOT, "data", "figure_inputs", "fig2_n2_feasibility")
+DEFAULT_OUTFILE = os.path.join(REPO_ROOT, "pdffiles", "main", "alphas_deltar_row_py.pdf")
 
 # Colors (matching CairoMakie original)
 BG_COLOR = "#F6F2E8"
@@ -441,7 +442,7 @@ def compose_with_insets(fig, axes, outfile):
     last panel, mimicking the pdflatex composition in the original Julia code.
     Insets are placed at the bottom-LEFT of panel E.
     """
-    pdfdir = os.path.join(os.path.dirname(SCRIPT_DIR), "pdffiles", "main")
+    pdfdir = os.path.join(REPO_ROOT, "data", "figure_inputs", "scheme_pdfs")
     fold_pdf = os.path.join(pdfdir, "fold_scheme.pdf")
     tc_pdf = os.path.join(pdfdir, "trans_critical_scheme.pdf")
 

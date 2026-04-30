@@ -40,9 +40,9 @@ FLAG_REMAP = {"fold": "complex"}
 ALL_BOUNDARY_FLAGS = ["negative", "complex", "unstable", "success"]
 
 PANEL_INFO = [
-    ("complex",  "A", "Abrupt (fold)"),
-    ("negative", "B", "Gradual (negative)"),
-    ("unstable", "C", "Unstable"),
+    ("complex",  "a", "Abrupt (fold)"),
+    ("negative", "b", "Gradual (transcritical)"),
+    ("unstable", "c", "Unstable (Hopf)"),
 ]
 
 DARK_POINT_SIZE = 50 * 0.65
@@ -64,6 +64,15 @@ REGIME_MARKERS = {
 REGIME_MARKER_DEFAULT = "o"
 
 N_ALPHA_BINS = 15
+
+# Broken-axis log-log convention (matches figure_4.pdf via _alpha_eff_loglog_helpers):
+#   - Mean fractions of exactly zero are drawn at Y_ZERO_SENTINEL and labeled "0".
+#   - Nonzero means are floored to Y_MIN_NONZERO so the gap between the sentinel
+#     and the log decades remains empty (= the broken-axis region).
+#   - Break marks on both y-spines indicate the discontinuity.
+Y_ZERO_SENTINEL = 1e-3
+Y_MIN_NONZERO   = 1e-2
+Y_TOP_PAD       = 1.2
 
 
 # ── bank type detection ──────────────────────────────────────────────────────
@@ -197,16 +206,17 @@ def main():
     parser = argparse.ArgumentParser(
         description="4-panel boundary row — auto-detects Gibbs vs standard bank."
     )
-    parser.add_argument("--bank", type=str, default=None)
+    parser.add_argument("--bank", type=str,
+                        default="gibbs_128_dirs_from_gibbs_figures_n20_seed12345")
     parser.add_argument("--input-root", type=Path, nargs="+", default=None)
     parser.add_argument(
         "--output", type=Path,
-        default=Path("pdffiles/si/boundary_types_row_gibbs.pdf"),
+        default=Path("pdffiles/si/boundary_types_row_gibbs_taylor_hull.pdf"),
     )
     parser.add_argument("--n-bins", type=int, default=N_ALPHA_BINS,
                         help="Number of alpha_eff bins for Gibbs path")
     parser.add_argument("--alpha-field", type=str, nargs="+",
-                        default=["alpha_eff"],
+                        default=["alpha_eff_taylor", "alpha_eff_hull"],
                         choices=["alpha_eff", "alpha_eff_taylor", "alpha_eff_hull"],
                         help="Effective-alpha scalar(s) to use as x-axis (Gibbs only). "
                              "Pass multiple values to produce one row per field.")
@@ -297,12 +307,12 @@ def _plot_gibbs(args, label_size):
 
     # ── layout: N_ROWS × N_COLS ──────────────────────────────────────────
     N_COLS = len(PANEL_INFO)
-    S        = 2.2
-    GAP_X    = 0.15
-    GAP_Y    = 0.85    # vertical gap between rows (fits top row's xticks + xlabel)
-    YLABEL_L = 0.75
-    MARGIN_L = 0.02
-    MARGIN_R = 0.12
+    S        = 2.0
+    GAP_X    = 1.00     # horizontal gap — fits y-tick labels on inner panels
+    GAP_Y    = 0.85     # vertical gap between rows (fits top row's xticks + xlabel)
+    YLABEL_L = 0.55     # space reserved for "Boundary prevalence" rotated text
+    MARGIN_L = 0.05
+    MARGIN_R = 0.10
     MARGIN_B = 0.55
     MARGIN_T = 0.30
 
@@ -350,14 +360,25 @@ def _plot_gibbs(args, label_size):
                 ))
         return out
 
-    def _draw_scatter(target_ax, agg):
+    def _clip_y(y, has_zero):
+        """Map y to plotting space following the broken-axis convention."""
+        if not has_zero:
+            return y
+        if y <= 0:
+            return Y_ZERO_SENTINEL
+        return max(y, Y_MIN_NONZERO)
+
+    def _draw_scatter(target_ax, agg, has_zero):
         for regime, pid, x_mean, x_q25, x_q75, y_mean, y_q25, y_q75 in agg:
             mk = regime_marker[regime]
             color = param_cmap[pid]
+            y_mean_p = _clip_y(y_mean, has_zero)
+            y_q25_p  = _clip_y(y_q25,  has_zero)
+            y_q75_p  = _clip_y(y_q75,  has_zero)
             target_ax.errorbar(
-                x_mean, y_mean,
+                x_mean, y_mean_p,
                 xerr=[[max(0, x_mean - x_q25)], [max(0, x_q75 - x_mean)]],
-                yerr=[[max(0, y_mean - y_q25)], [max(0, y_q75 - y_mean)]],
+                yerr=[[max(0, y_mean_p - y_q25_p)], [max(0, y_q75_p - y_mean_p)]],
                 fmt=mk, color=color,
                 markersize=4,
                 markeredgecolor="black", markeredgewidth=0.3,
@@ -365,23 +386,32 @@ def _plot_gibbs(args, label_size):
                 alpha=0.75, zorder=3,
             )
 
-    def _style_inset(inset):
-        inset.tick_params(length=2, pad=1,
-                          labelsize=mpl.rcParams["xtick.labelsize"] * 0.75)
-        for spine in inset.spines.values():
-            spine.set_linewidth(0.6)
-        inset.grid(False)
+    def _draw_y_break_marks(target_ax):
+        """Draw two parallel slashes on each y-spine at the gap between the
+        zero sentinel and the log decades. Mirrors the technique used in
+        _alpha_eff_loglog_helpers.apply_loglog_axes."""
+        import math
+        ylim_lo, ylim_hi = target_ax.get_ylim()
+        log_lo = math.log10(ylim_lo)
+        log_hi = math.log10(ylim_hi)
+        def yf(y):
+            return (math.log10(y) - log_lo) / (log_hi - log_lo)
+        yf_break = 0.5 * (yf(Y_ZERO_SENTINEL) + yf(Y_MIN_NONZERO))
+        d_x, d_y = 0.012, 0.015
+        kw = dict(transform=target_ax.transAxes, color="black",
+                  clip_on=False, linewidth=0.9)
+        for x_side in (0.0, 1.0):
+            target_ax.plot([x_side - d_x, x_side + d_x],
+                           [yf_break - d_y, yf_break + d_y], **kw)
+            target_ax.plot([x_side - d_x, x_side + d_x],
+                           [yf_break - 2 * d_y, yf_break], **kw)
 
     # ── panel helper ──────────────────────────────────────────────────────
-    def _panel(ax, df, flag, plabel, title, show_yt, show_title, inset_kind):
-        m = 0.03
-        ax.set_xlim(-m - 0.01, 1.0 + m)
-        ax.set_xticks([0.0, 0.5, 1.0])
-        ax.set_xticklabels(["0", "0.5", "1"])
-        ax.set_ylim(-m, 1.0 + m)
-        ax.set_yticks([0.0, 0.5, 1.0])
-        if not show_yt:
-            ax.set_yticklabels([])
+    def _panel(ax, df, flag, plabel, title, show_title):
+        ax.set_xscale("log")
+        ax.set_yscale("log")
+        ax.tick_params(axis="both", which="both", labelleft=True, labelbottom=True)
+
         if show_title:
             ax.set_title(title, fontsize=label_size, pad=4)
         ax.text(0.0, 1.01, plabel, transform=ax.transAxes, ha="left", va="bottom",
@@ -391,59 +421,27 @@ def _plot_gibbs(args, label_size):
         agg = _aggregate(df, flag)
         if not agg:
             return
-        _draw_scatter(ax, agg)
+        has_zero = any(y_mean <= 0 for *_, y_mean, _, _ in agg)
+        _draw_scatter(ax, agg, has_zero)
 
-        if flag != "complex" or inset_kind is None:
-            return
+        # X-axis: tight to errorbar extents.
+        x_los = [x_q25 for _, _, _, x_q25, _, _, _, _ in agg if x_q25 > 0]
+        x_his = [x_q75 for _, _, _, _, x_q75, _, _, _ in agg if x_q75 > 0]
+        if x_los and x_his:
+            ax.set_xlim(min(x_los) / 1.03, max(x_his) * 1.03)
 
-        # Shared y-range: tight around error bars of the "complex" scatter.
-        # Since y stats depend only on boundary-flag counts (not on alpha
-        # field), both insets across rows use the same y bounds.
-        y_lo = min(y_q25 for _, _, _, _, _, _, y_q25, _ in agg)
-        y_hi = max(y_q75 for *_, y_q75 in agg)
-        y_pad = max(0.03 * (y_hi - y_lo), 1e-3)
-        y_lim = (y_lo - y_pad, y_hi + y_pad)
-
-        def _nice_ticks(lo, hi):
-            span = hi - lo
-            if span <= 0:
-                return [lo]
-            step = 10 ** np.floor(np.log10(span / 2))
-            for k in (1, 2, 5):
-                if span / (k * step) <= 3:
-                    step = k * step
-                    break
-            first = np.ceil(lo / step) * step
-            return np.arange(first, hi + step / 2, step)
-
-        yt = _nice_ticks(y_lo, y_hi)
-
-        if inset_kind == "taylor_zoom":
-            # Top-left inset, fixed x∈[0.4,0.6]; y shared with hull inset.
-            inset = ax.inset_axes([0.12, 0.51, 0.44, 0.44])
-            _draw_scatter(inset, agg)
-            inset.set_xlim(0.45, 0.55)
-            inset.set_ylim(*y_lim)
-            inset.set_xticks([0.45, 0.5, 0.55])
-            inset.set_yticks(yt)
-            inset.set_yticklabels([f"{v:g}" for v in yt])
-            _style_inset(inset)
-
-        elif inset_kind == "hull_tight":
-            # Top-right inset, dynamic tight bounds around error bars.
-            x_lo = min(x_q25 for _, _, _, x_q25, _, _, _, _ in agg)
-            x_hi = max(x_q75 for _, _, _, _, x_q75, _, _, _ in agg)
-            x_pad = max(0.03 * (x_hi - x_lo), 1e-3)
-            inset = ax.inset_axes([0.51, 0.51, 0.44, 0.44])
-            _draw_scatter(inset, agg)
-            inset.set_xlim(x_lo - x_pad, x_hi + x_pad)
-            inset.set_ylim(*y_lim)
-            xt = _nice_ticks(x_lo, x_hi)
-            inset.set_xticks(xt)
-            inset.set_xticklabels([f"{v:g}" for v in xt])
-            inset.set_yticks(yt)
-            inset.set_yticklabels([f"{v:g}" for v in yt])
-            _style_inset(inset)
+        if has_zero:
+            # Broken-axis treatment: fixed sentinel/decade frame + custom ticks.
+            ax.set_ylim(Y_ZERO_SENTINEL / Y_TOP_PAD, Y_TOP_PAD)
+            ax.set_yticks([Y_ZERO_SENTINEL, 1e-2, 1e-1, 1.0])
+            ax.set_yticklabels(["0", r"$10^{-2}$", r"$10^{-1}$", r"$10^{0}$"])
+            _draw_y_break_marks(ax)
+        else:
+            # No zeros: tight log-log around the actual errorbar extents.
+            y_los = [y_q25 for *_, y_q25, _ in agg if y_q25 > 0]
+            y_his = [y_q75 for *_, y_q75 in agg if y_q75 > 0]
+            if y_los and y_his:
+                ax.set_ylim(min(y_los) / 1.03, max(y_his) * 1.03)
 
     # ── fill panels for each row ──────────────────────────────────────────
     row_plabel_offset = ["", "E", "I", "M"]  # extend if N_ROWS grows
@@ -455,16 +453,10 @@ def _plot_gibbs(args, label_size):
         else:
             plabels = [chr(ord(default_labels[0]) + ri * len(PANEL_INFO) + ci)
                        for ci in range(len(PANEL_INFO))]
-        inset_kind = {
-            "alpha_eff_taylor": "taylor_zoom",
-            "alpha_eff_hull":   "hull_tight",
-        }.get(alpha_fields[ri])
         for ci, (flag, _, ttl) in enumerate(PANEL_INFO):
             _panel(
                 axes_grid[ri][ci], df_row, flag, plabels[ci], ttl,
-                show_yt=(ci == 0),
                 show_title=(ri == 0),
-                inset_kind=inset_kind,
             )
 
     # ── regime legend ─────────────────────────────────────────────────────
@@ -478,17 +470,18 @@ def _plot_gibbs(args, label_size):
     lfs = mpl.rcParams["legend.fontsize"] * 0.75
     tfs = label_size * 0.85
     axes[0].legend(handles=regime_handles, title="Regime",
-                   loc="upper right",
+                   loc="upper left",
                    fontsize=lfs, title_fontsize=tfs,
                    framealpha=0.7, edgecolor="none",
                    handletextpad=0.3, labelspacing=0.4)
 
-    # ── y-axis label per row ──────────────────────────────────────────────
-    for ri in range(N_ROWS):
-        y_center_phys = MARGIN_B + (N_ROWS - 1 - ri) * (S + GAP_Y) + S / 2
-        fig.text((MARGIN_L + YLABEL_L * 0.35) / FIG_W, y_center_phys / FIG_H,
-                 "Boundary prevalence", rotation=90, ha="center", va="center",
-                 fontsize=label_size)
+    # ── y-axis label: one centered across all rows, slightly left of panels
+    y_top_phys    = MARGIN_B + (N_ROWS - 1) * (S + GAP_Y) + S
+    y_bottom_phys = MARGIN_B
+    y_center_phys = (y_top_phys + y_bottom_phys) / 2
+    fig.text((MARGIN_L + YLABEL_L * 0.05) / FIG_W, y_center_phys / FIG_H,
+             "Boundary prevalence", rotation=90, ha="center", va="center",
+             fontsize=label_size)
 
     # ── x-axis label per row ──────────────────────────────────────────────
     xlabel_map = {

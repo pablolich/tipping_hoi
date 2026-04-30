@@ -32,7 +32,7 @@ import lever_and_multimodel_prevalence as base
 import _alpha_eff_loglog_helpers as ll
 
 
-DEFAULT_CACHE_DIR = Path("figures/cache")
+DEFAULT_CACHE_DIR = Path(__file__).resolve().parent.parent / "data" / "figure_cache"
 CACHE_VERSION      = 1
 
 
@@ -170,7 +170,8 @@ def _draw_panel(ax, groups, xlabel, label_size, tick_label_size,
 
 
 def make_combined_figure(groups_taylor, groups_hull, output_stem: Path,
-                         dpi: int, log_scale: bool = False) -> None:
+                         dpi: int) -> None:
+    log_scale = True
     label_size = mpl.font_manager.FontProperties(
         size=mpl.rcParams["axes.labelsize"]
     ).get_size_in_points()
@@ -228,12 +229,9 @@ def make_combined_figure(groups_taylor, groups_hull, output_stem: Path,
     ax_r.set_ylabel("")
 
     output_stem.parent.mkdir(parents=True, exist_ok=True)
-    png_path = output_stem.with_suffix(".png")
     pdf_path = output_stem.with_suffix(".pdf")
-    fig.savefig(png_path, dpi=dpi, bbox_inches="tight", pad_inches=0.03)
     fig.savefig(pdf_path, bbox_inches="tight", pad_inches=0.03)
     plt.close(fig)
-    print(f"[INFO] Wrote PNG: {png_path}")
     print(f"[INFO] Wrote PDF: {pdf_path}")
 
 
@@ -247,9 +245,7 @@ def main() -> None:
     parser.add_argument("--output", default=str(default_output),
                         help=f"Output stem without extension (default: {default_output})")
     parser.add_argument("--dpi", type=int, default=300,
-                        help="PNG resolution (default: 300)")
-    parser.add_argument("--log", action="store_true",
-                        help="Also render a log-log variant at <stem>_loglog.{png,pdf}")
+                        help="Output PDF DPI (default: 300)")
     parser.add_argument("--rebuild-cache", action="store_true",
                         help="Force rebuild of the panel-B groups cache from JSONs.")
     args = parser.parse_args()
@@ -261,12 +257,7 @@ def main() -> None:
     groups_taylor = load_or_build_groups("alpha_eff_taylor", rebuild=args.rebuild_cache)
     groups_hull   = load_or_build_groups("alpha_eff_hull",   rebuild=args.rebuild_cache)
 
-    make_combined_figure(groups_taylor, groups_hull, output_stem, args.dpi,
-                         log_scale=False)
-    if args.log:
-        stem_log = output_stem.with_name(output_stem.name + "_loglog")
-        make_combined_figure(groups_taylor, groups_hull, stem_log, args.dpi,
-                             log_scale=True)
+    make_combined_figure(groups_taylor, groups_hull, output_stem, args.dpi)
 
 
 if __name__ == "__main__":

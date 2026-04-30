@@ -5,6 +5,11 @@
 .vscode/
 .idea/
 *.swp
+.claude/
+
+# Local 2D mu_B exploration scripts (kept out of main)
+figures/explore_2D_julia_helper.jl
+figures/explore_2D_mu_B_regimes.py
 
 # Python
 __pycache__/
@@ -20,7 +25,6 @@ __pycache__/
 /deps/build.log
 
 # Build / cache outputs from figure scripts
-figures/cache/
 figures/__pycache__/
 figures/pdffiles/
 figures/data/
@@ -28,12 +32,34 @@ figures/boundary_data/
 figures/panel_candidates/
 figures/figures/
 
+# Regenerated figure-script caches (live under data/ so figures/ stays code-only)
+/data/figure_cache/
+
+# Figure-input subdirectories (kept locally only); top-level PDFs/PNGs in
+# /data/figure_inputs/ are committed.
+/data/figure_inputs/*/
+
+# Bank model JSONs — full ~6 GB dataset is on Zenodo (see README).
+# The one placeholder per bank that is already git-tracked stays tracked
+# (gitignore does not affect already-tracked files); downloaded models are
+# ignored so they don't bloat the repo.
+/data/example_runs/*/*.json
+
+# Zenodo download staging area (local helper, not part of the repo)
+/data/_zenodo_downloads/
+
+# Local marker files dropped by the Zenodo download script
+.zenodo_extracted
+
 # HPC / cluster scripts (not used by reviewers; kept locally only)
 hpc/
 cluster/
 
 # Generated figures (regenerated on demand via README instructions)
 pdffiles/
+
+# Submission files (manuscript sources, class/style files — kept locally only)
+submission_files/
 
 # LaTeX manuscript sources and build artifacts
 *.tex

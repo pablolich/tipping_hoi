@@ -42,7 +42,7 @@ REP_N       = 4
 
 BANK_PREFIX = "2_bank_standard_50_models_n_4-20_128_dirs"
 
-DEFAULT_CACHE_PATH = Path("figures/cache/figure_3_aggregate.pkl")
+DEFAULT_CACHE_PATH = Path(__file__).resolve().parent.parent / "data" / "figure_cache" / "figure_3_aggregate.pkl"
 CACHE_VERSION      = 1
 
 DARK_POINT_SIZE = 50 * 0.65
@@ -927,7 +927,7 @@ def main():
     y_brk_top = H_new_y + s              # top of panel H
     y_brk_bot = C_y                       # bottom of panel I
 
-    scheme_dir = Path("pdffiles/main").resolve()
+    scheme_dir = Path(__file__).resolve().parent.parent / "data" / "figure_inputs" / "scheme_pdfs"
 
     if not shutil.which("pdflatex"):
         print("  (skipping inset composition -- pdflatex not found)")

@@ -1,0 +1,10 @@
+# Python dependencies for the figure scripts in figures/.
+# Versions below match the environment used to produce the paper's figures
+# (Python 3.14). Other recent versions are likely to work; pin if you need
+# bit-for-bit reproducibility.
+matplotlib>=3.10,<4
+numpy>=2.0,<3
+pandas>=2.2,<4
+pyarrow>=15
+scipy>=1.13,<2
+seaborn>=0.13,<1

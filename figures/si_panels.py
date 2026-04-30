@@ -495,12 +495,9 @@ def build_fig_hysteresis(banks_data, n_values, color_map, out_stem):
 def _save(fig: plt.Figure, stem: Path) -> None:
     stem.parent.mkdir(parents=True, exist_ok=True)
     pdf_path = stem.with_suffix(".pdf")
-    png_path = stem.with_suffix(".png")
     fig.savefig(pdf_path, dpi=300, bbox_inches="tight")
-    fig.savefig(png_path, dpi=300, bbox_inches="tight")
     plt.close(fig)
     print(f"  wrote {pdf_path}")
-    print(f"  wrote {png_path}")
 
 
 # ── main ───────────────────────────────────────────────────────────────────────

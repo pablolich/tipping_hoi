@@ -1,7 +1,7 @@
 #!/usr/bin/env julia
 # generate_n2_boundary_data.jl — compute all data needed for the n=2
-# feasibility-domain figure and save to boundary_data/ as .npy arrays +
-# metadata.json.
+# feasibility-domain figure and save to data/figure_inputs/fig2_n2_feasibility/
+# as .npy arrays + metadata.json.
 #
 # Usage:  julia --startup-file=no generate_n2_boundary_data.jl [outdir]
 #
@@ -395,7 +395,7 @@ function main(; neg_path::AbstractString = joinpath(@__DIR__, "gradual_discrimin
                Δr1_range = (-7.1, 7.1), Δr2_range = (-7.1, 7.1),
                res::Int = 601, n_perts::Int = 64, max_pert_mag::Float64 = 50.0,
                nx_hm::Int = 100, ny_hm::Int = 100,
-               outdir::AbstractString = joinpath(@__DIR__, "boundary_data"),
+               outdir::AbstractString = normpath(joinpath(@__DIR__, "..", "data", "figure_inputs", "fig2_n2_feasibility")),
                rays_only::Bool = false)
 
     # In rays_only mode: reuse existing heatmap/contour data; only redo the ray scan.
