@@ -63,6 +63,7 @@ Windows is untested.
 | Python    | 3.14         | ≥ 3.11                       |
 | Julia packages | locked in `Manifest.toml` (HomotopyContinuation, DifferentialEquations, ForwardDiff, JSON3, …) | — use the lockfile |
 | Python packages | locked in `requirements.txt` (matplotlib ≥ 3.10, numpy ≥ 2.0, pandas ≥ 2.2, pyarrow ≥ 15, scipy ≥ 1.13, seaborn ≥ 0.13) | as pinned |
+| Macaulay2 (optional) | 1.24 | only needed to re-derive the symbolic n=2 discriminants in `figures/n2_discriminants.m2` |
 
 **Hardware.** No non-standard hardware required for the demo or for running the
 pipeline on small banks (n ≤ 10, ≤ 50 models). The full Fig 3 / Fig S3 banks
