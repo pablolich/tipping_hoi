@@ -253,6 +253,13 @@ def plot_grid_for_flag(
                 ax.set_title(rf"$\mu_B = {mu_b:g}$",
                              fontsize=label_size * 1.10, pad=4)
 
+            letter = chr(ord("a") + r * ncols + c)
+            ax.text(0.04, 0.94, letter,
+                    transform=ax.transAxes, ha="left", va="top",
+                    fontsize=label_size * 0.95, fontweight="bold",
+                    bbox=dict(facecolor="white", edgecolor="none",
+                              alpha=0.65, pad=1.2))
+
     # ── μ_A row labels just outside the right y-axis (mirror μ_B title pad) ──
     pad_in = 4 / 72.0   # match ax.set_title(..., pad=4)
     for r, mu_a in enumerate(mu_a_values):

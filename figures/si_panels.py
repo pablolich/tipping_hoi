@@ -289,22 +289,26 @@ def _add_row_labels(fig: plt.Figure, axes: np.ndarray, labels: List[str]) -> Non
 
 
 def _add_shared_legend(fig: plt.Figure, n_values: List[int], color_map: dict) -> None:
-    handles = [
-        mpl.lines.Line2D([0], [0], color=color_map[n], marker="o",
-                         markersize=3.5, markeredgecolor="black",
-                         markeredgewidth=0.3, linewidth=1.0,
-                         label=f"{n}")
-        for n in n_values
-    ]
-    fig.legend(handles=handles, title=r"$n$",
-               loc="lower center", ncol=len(n_values),
-               bbox_to_anchor=(0.5, -0.005),
-               handlelength=1.2, columnspacing=0.9,
-               handletextpad=0.3, borderpad=0.3)
+    cmap_base, _, norm = f3.build_colormaps(len(n_values))
+    sm = mpl.cm.ScalarMappable(norm=norm, cmap=cmap_base)
+    sm.set_array([])
+
+    cbar_ax = fig.add_axes([0.34, 0.005, 0.32, 0.010])
+
+    target_ns = {4, 12, 20}
+    tick_positions = [i for i, n in enumerate(n_values) if int(n) in target_ns]
+    tick_labels = [str(int(n)) for n in n_values if int(n) in target_ns]
+
+    cbar = fig.colorbar(sm, cax=cbar_ax, ticks=tick_positions,
+                        orientation="horizontal")
+    cbar.ax.set_xticklabels(tick_labels)
+    cbar.ax.minorticks_off()
+    cbar.ax.tick_params(labelsize=6, pad=1)
+    cbar.ax.set_title(r"$n$", fontsize=7, pad=2, loc="center")
 
 
 def _abc_letter(row: int, col: int, ncols: int) -> str:
-    return chr(ord("A") + row * ncols + col)
+    return chr(ord("a") + row * ncols + col)
 
 
 def build_fig_boundary_fractions(banks_data: Dict[str, dict],

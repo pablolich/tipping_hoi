@@ -215,13 +215,13 @@ def make_combined_figure(groups_taylor, groups_hull, output_stem: Path,
             ax_l, groups_taylor,
             r"Non-linearity strength ($\alpha_\mathrm{eff}^{\mathrm{Taylor}}$)",
             label_size, tick_label_size, log_scale,
-            suppress_legend_cbar=True, panel_letter="b",
+            suppress_legend_cbar=True, panel_letter="a",
         )
         _draw_panel(
             ax_r, groups_hull,
             r"Non-linearity strength ($\alpha_\mathrm{eff}^{\mathrm{hull}}$)",
             label_size, tick_label_size, log_scale,
-            suppress_legend_cbar=False, panel_letter="c",
+            suppress_legend_cbar=False, panel_letter="b",
         )
     finally:
         restore()

@@ -152,8 +152,8 @@ def draw_panel(ax, data, color_map, label_size, tick_label_size,
                       direction="in", length=3.5)
     ax._secax = secax
 
-    ax.text(0.04, 0.96, panel_letter, transform=ax.transAxes,
-            fontsize=label_size, fontweight="bold", va="top", ha="left")
+    ax.text(-0.05, 1.24, panel_letter, transform=ax.transAxes,
+            fontsize=label_size, fontweight="bold", va="bottom", ha="left")
     ax.text(0.96, 0.96, title, transform=ax.transAxes,
             fontsize=label_size, va="top", ha="right")
 
@@ -245,7 +245,7 @@ def make_figure(output_stem: Path, dpi: int) -> None:
     #       below the plateau and right of the jump is empty → lower-right.
     inset_bboxes = {
         "a": (0.22, 0.46, 0.44, 0.40),
-        "b": (0.22, 0.46, 0.44, 0.40),
+        "b": (0.22, 0.52, 0.44, 0.36),
         "c": (0.55, 0.24, 0.40, 0.32),
     }
     for ax, letter, (title, data) in zip(axes, letters, bank_data):
@@ -253,8 +253,8 @@ def make_figure(output_stem: Path, dpi: int) -> None:
                    title=title, panel_letter=letter,
                    show_ylabel=(letter == "a"),
                    inset_bbox=inset_bboxes[letter],
-                   show_inset_xlabel=(letter in ("a", "c")),
-                   show_inset_ylabel=(letter in ("a", "c")),
+                   show_inset_xlabel=True,
+                   show_inset_ylabel=True,
                    inset_x_key=("taylor" if letter == "c" else "hull"))
 
     # Tight-wrap: compute unified x/y limits directly from plotted data

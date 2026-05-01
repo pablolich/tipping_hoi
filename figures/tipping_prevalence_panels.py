@@ -827,7 +827,7 @@ def main():
 
     # ── axis labels ────────────────────────────────────────────────────────
 
-    # Shared "Boundary prevalence" y-label (centred over all 3 rows)
+    # Shared "Boundary probability" y-label (centred over all 3 rows)
     YLABEL_EXTRA_PAD = 0.06
     YLABEL_OFFSET    = 0.455 + YLABEL_EXTRA_PAD
     x_ylabel_L = (MARGIN_L + YLABEL_L - YLABEL_OFFSET) / FIG_W
@@ -835,7 +835,7 @@ def main():
     pos_top = ax_prev[(0, 0)].get_position()
     pos_bot = ax_prev[(2, 0)].get_position()
     y_center_left = (pos_bot.y0 + pos_top.y0 + pos_top.height) / 2
-    fig.text(x_ylabel_L, y_center_left, "Boundary prevalence",
+    fig.text(x_ylabel_L, y_center_left, "Boundary probability",
              rotation=90, ha="center", va="center", fontsize=label_size * 1.15)
 
     # Shared "HOI strength (α)" x-label (centred under 3×2 grid)
