@@ -127,7 +127,7 @@ def apply_loglog_axes(ax, xs, y_zero: float = 1e-3, y_log_min: float = 1e-2,
     ax.set_aspect("auto")
 
     yticks = [y_zero, 1e-2, 1e-1, 1.0]
-    yticklabels = ["0", r"$10^{-2}$", r"$10^{-1}$", r"$10^{0}$"]
+    yticklabels = ["0", r"$10^{-2}$", r"$10^{-1}$", "1"]
     ax.set_yticks(yticks)
     ax.set_yticklabels(yticklabels)
 

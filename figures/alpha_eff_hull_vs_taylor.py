@@ -25,6 +25,7 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
+from matplotlib.ticker import FixedLocator, NullFormatter, ScalarFormatter
 
 
 plt.rcParams.update({
@@ -164,14 +165,20 @@ def draw_panel(ax, data, color_map, label_size, tick_label_size,
         "taylor": r"$\alpha_\mathrm{eff}^{\mathrm{Taylor}}$",
     }[inset_x_key]
     iax = ax.inset_axes(inset_bbox)
+    iax.set_xscale("log")
+    iax.set_yscale("log")
     for n in sorted(data):
         rec = data[n]
-        iax.scatter(rec[x_mean_key], rec["fold_mean"],
+        x = np.asarray(rec[x_mean_key], dtype=float)
+        y = np.asarray(rec["fold_mean"], dtype=float)
+        m = np.isfinite(x) & np.isfinite(y) & (x > 0) & (y > 0)
+        iax.scatter(x[m], y[m],
                     color=color_map[n], s=10, alpha=0.9,
                     edgecolors="none", zorder=3)
     iax.grid(False)
     iax.set_facecolor((1.0, 1.0, 1.0, 0.85))
-    iax.tick_params(axis="both", labelsize=tick_label_size * 0.8,
+    iax.tick_params(axis="both", which="both",
+                    labelsize=tick_label_size * 0.8,
                     length=2, pad=1.5)
     for s in iax.spines.values():
         s.set_linewidth(0.5)
@@ -180,6 +187,10 @@ def draw_panel(ax, data, color_map, label_size, tick_label_size,
                        fontsize=tick_label_size, labelpad=1.5)
     if show_inset_ylabel:
         iax.set_ylabel("Folds", fontsize=tick_label_size, labelpad=1.5)
+    if inset_x_key == "taylor":
+        iax.xaxis.set_major_locator(FixedLocator([0.1, 0.2, 0.3]))
+        iax.xaxis.set_major_formatter(ScalarFormatter())
+        iax.xaxis.set_minor_formatter(NullFormatter())
     ax._inset = iax
     ax._inset_x_key = inset_x_key
 
@@ -285,35 +296,7 @@ def make_figure(output_stem: Path, dpi: int) -> None:
     for ax in axes:
         _sync_secondary_ticks_to_primary(ax)
 
-    # Inset y-limits unified across panels (fold fraction is directly
-    # comparable across banks); inset x-limits tightened per panel to its
-    # own α_eff^hull range, because the facilitative bank (μ_B = 0.1) spans
-    # a much larger hull-nonlinearity range than the other two and a
-    # unified x-axis would leave the a/b insets mostly empty.
-    all_ys = []
-    for _, data in bank_data:
-        for rec in data.values():
-            all_ys.extend(np.asarray(rec["fold_mean"])[np.isfinite(rec["fold_mean"])].tolist())
-    if all_ys:
-        iy_lo_d, iy_hi_d = min(all_ys), max(all_ys)
-        iy_pad = 0.01 * max(iy_hi_d - iy_lo_d, 1e-9)
-        iy_lo, iy_hi = iy_lo_d - iy_pad, iy_hi_d + iy_pad
-    else:
-        iy_lo, iy_hi = 0.0, 1.0
-
-    for ax, (_, data) in zip(axes, bank_data):
-        iax = getattr(ax, "_inset", None)
-        if iax is None:
-            continue
-        x_mean_key = f"{getattr(ax, '_inset_x_key', 'hull')}_mean"
-        xs = []
-        for rec in data.values():
-            xs.extend(np.asarray(rec[x_mean_key])[np.isfinite(rec[x_mean_key])].tolist())
-        if xs:
-            x_lo_d, x_hi_d = min(xs), max(xs)
-            x_pad = 0.01 * max(x_hi_d - x_lo_d, 1e-9)
-            iax.set_xlim(x_lo_d - x_pad, x_hi_d + x_pad)
-        iax.set_ylim(iy_lo, iy_hi)
+    # Inset limits are left to matplotlib's autoscale on the log axes.
 
     # Discrete colorbar (matches tipping_prevalence_panels.py): ticks at {4, 12, 20}
     sm = mpl.cm.ScalarMappable(cmap=cmap, norm=norm)

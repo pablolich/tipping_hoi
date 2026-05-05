@@ -42,18 +42,18 @@ plt.rcParams.update({
 
 Y_FLOOR = -0.1
 COOLWARM_QUAL3_NO_GRAY = ["#3F7F93", "#7B6FAE", "#A8752E"]
-FORWARD_COLOR  = "#8B1A1A"
-BACKWARD_COLOR = "#1F4E79"
+FORWARD_COLOR  = "#D55E00"
+BACKWARD_COLOR = "#0072B2"
 FORWARD_MARKER  = ">"
 BACKWARD_MARKER = "<"
 
 BRANCH_LINESTYLES = {
     "pre_fold_1":          "-",
-    "pre_fold_2":          "--",
+    "pre_fold_2":          ":",
     "post_forward":        "-",
     "post_backward":       "-",
     "extinction_forward":  "-",
-    "extinction_backward": "--",
+    "extinction_backward": ":",
 }
 
 BRANCH_ORDER = {
@@ -189,9 +189,9 @@ def plot_skeleton(
         ax.plot(
             group["delta"],
             group["abundance"].clip(lower=Y_FLOOR),
-            color=species_colors[int(species_id)],
+            color="black",
             linestyle=BRANCH_LINESTYLES[branch_id],
-            linewidth=1.6,
+            linewidth=1.0,
             alpha=0.95,
             zorder=2,
         )
@@ -463,42 +463,49 @@ def draw_panel_a(ax: plt.Axes, df: pd.DataFrame, label_size: float, tick_label_s
 
     plot_skeleton(ax, algebraic, species_colors, unstable_min_delta=bottom_marker)
 
-    if not forward_dyn.empty:
-        forward_dyn = forward_dyn.sort_values(["species_id", "delta"], kind="mergesort")
+    split_x = top_marker if top_marker is not None else float("inf")
+
+    def _scatter_region(sub: pd.DataFrame, sign: int, marker: str, color: str, zorder: int) -> None:
+        if sub.empty:
+            return
         ax.scatter(
-            forward_dyn["delta"] + delta_offset,
-            forward_dyn["abundance"].clip(lower=Y_FLOOR),
-            marker=FORWARD_MARKER,
-            color=FORWARD_COLOR,
+            sub["delta"] + sign * delta_offset,
+            sub["abundance"].clip(lower=Y_FLOOR),
+            marker=marker,
+            color=color,
             s=24,
-            linewidths=0.8,
-            alpha=0.55,
-            zorder=3,
+            linewidths=0,
+            alpha=1.0,
+            zorder=zorder,
         )
-    else:
-        print("[WARN] No forward dynamic rows; forward scatter omitted.")
 
     if not backward_dyn.empty:
         backward_dyn = backward_dyn.sort_values(["species_id", "delta"], kind="mergesort")
-        ax.scatter(
-            backward_dyn["delta"] - delta_offset,
-            backward_dyn["abundance"].clip(lower=Y_FLOOR),
-            marker=BACKWARD_MARKER,
-            color=BACKWARD_COLOR,
-            s=24,
-            linewidths=0.8,
-            alpha=0.55,
-            zorder=3,
-        )
+        bwd_left  = backward_dyn[backward_dyn["delta"] <  split_x]
+        bwd_right = backward_dyn[backward_dyn["delta"] >= split_x]
     else:
+        bwd_left = bwd_right = backward_dyn
         print("[WARN] No backward dynamic rows; backward scatter omitted.")
+
+    if not forward_dyn.empty:
+        forward_dyn = forward_dyn.sort_values(["species_id", "delta"], kind="mergesort")
+        fwd_left  = forward_dyn[forward_dyn["delta"] <  split_x]
+        fwd_right = forward_dyn[forward_dyn["delta"] >= split_x]
+    else:
+        fwd_left = fwd_right = forward_dyn
+        print("[WARN] No forward dynamic rows; forward scatter omitted.")
+
+    # Left of the forward fold: orange (forward) on top of blue (backward).
+    _scatter_region(bwd_left,  -1, BACKWARD_MARKER, BACKWARD_COLOR, zorder=3)
+    _scatter_region(fwd_left,  +1, FORWARD_MARKER,  FORWARD_COLOR,  zorder=4)
+    # Right of the forward fold: blue (backward) on top of orange (forward).
+    _scatter_region(fwd_right, +1, FORWARD_MARKER,  FORWARD_COLOR,  zorder=3)
+    _scatter_region(bwd_right, -1, BACKWARD_MARKER, BACKWARD_COLOR, zorder=4)
 
     if top_marker is not None:
         ax.axvline(top_marker,    color=FORWARD_COLOR,  linestyle="--", linewidth=1.2, zorder=1)
     if bottom_marker is not None:
         ax.axvline(bottom_marker, color=BACKWARD_COLOR, linestyle="--", linewidth=1.2, zorder=1)
-
-    ax.axhline(0.0, color="black", linestyle="--", linewidth=1.0, zorder=1)
 
     add_panel_direction_arrow(ax, "forward",  tick_label_size, color=FORWARD_COLOR)
     add_panel_direction_arrow(ax, "backward", tick_label_size, color=BACKWARD_COLOR)
@@ -535,11 +542,11 @@ def draw_panel_a(ax: plt.Axes, df: pd.DataFrame, label_size: float, tick_label_s
     ax.grid(False)
 
     fwd_marker_handle    = mlines.Line2D([], [], marker=FORWARD_MARKER,  color=FORWARD_COLOR,
-                                         linestyle="none", markersize=5)
+                                         linestyle="none", markersize=5, markeredgewidth=0)
     bwd_marker_handle    = mlines.Line2D([], [], marker=BACKWARD_MARKER, color=BACKWARD_COLOR,
-                                         linestyle="none", markersize=5)
-    stable_line_handle   = mlines.Line2D([], [], color="black", linestyle="-",  linewidth=1.6)
-    unstable_line_handle = mlines.Line2D([], [], color="black", linestyle="--", linewidth=1.6)
+                                         linestyle="none", markersize=5, markeredgewidth=0)
+    stable_line_handle   = mlines.Line2D([], [], color="black", linestyle="-", linewidth=1.0)
+    unstable_line_handle = mlines.Line2D([], [], color="black", linestyle=":", linewidth=1.0)
     ax.legend(
         handles=[(bwd_marker_handle, fwd_marker_handle), stable_line_handle, unstable_line_handle],
         labels=["Integration endpoints", "Stable branch", "Unstable branch"],
@@ -610,7 +617,7 @@ def draw_panel_b(ax: plt.Axes, groups: dict, label_size: float, tick_label_size:
         plot_pts(ax, pts, marker_stouffer, c_stouffer, 30, eb_kw, pt_alpha=n_alpha(n))
 
     ax.set_xlabel(r"Non-linearity strength ($\alpha_\mathrm{eff}$)", fontsize=label_size)
-    ax.set_ylabel("Fraction abrupt boundaries", fontsize=label_size)
+    ax.set_ylabel("Abrupt boundary probability", fontsize=label_size)
     margin = 0.03
     ax.set_xlim(-margin, 1 + margin)
     ax.set_ylim(-margin, 1 + margin)

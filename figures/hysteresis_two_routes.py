@@ -75,11 +75,11 @@ BRANCH_ORDER = {
 }
 BRANCH_LINESTYLES = {
     "pre_fold_1": "-",
-    "pre_fold_2": "--",
+    "pre_fold_2": ":",
     "post_forward": "-",
     "post_backward": "-",
     "extinction_forward": "-",
-    "extinction_backward": "--",
+    "extinction_backward": ":",
 }
 
 Y_FLOOR = -0.1
@@ -461,7 +461,7 @@ def plot_skeleton(
     )
 
     for (branch_id, species_id), group in ordered.groupby(["branch_id", "species_id"], sort=False):
-        if unstable_min_delta is not None and BRANCH_LINESTYLES.get(str(branch_id), "-") == "--":
+        if unstable_min_delta is not None and BRANCH_LINESTYLES.get(str(branch_id), "-") == ":":
             group = group[group["delta"] >= unstable_min_delta]
             if group.empty:
                 continue
@@ -844,7 +844,7 @@ def plot_panels(
         bwd_marker_handle = mlines.Line2D([], [], marker=BACKWARD_MARKER, color=BACKWARD_COLOR,
                                           linestyle="none", markersize=12)
         stable_line_handle = mlines.Line2D([], [], color="black", linestyle="-", linewidth=1.6)
-        unstable_line_handle = mlines.Line2D([], [], color="black", linestyle="--", linewidth=1.6)
+        unstable_line_handle = mlines.Line2D([], [], color="black", linestyle=":", linewidth=1.6)
         # ax_ext.legend(
         #     handles=[(bwd_marker_handle, fwd_marker_handle), stable_line_handle, unstable_line_handle],
         #     labels=["Integration endpoints", "Stable branch", "Unstable branch"],
@@ -873,7 +873,6 @@ def plot_panels(
     ax_ext.set_ylabel(r"Equilibrium ($\mathbf{x}^*$)", fontsize=title_size)
 
     for ax in axes:
-        ax.axhline(0.0, color="0.45", linestyle="-", linewidth=0.5, zorder=1)
         ax.grid(False)
         ax.tick_params(labelsize=main_text_size * 0.8 * 1.15)
 
