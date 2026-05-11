@@ -205,13 +205,16 @@ matching Zenodo filename.
 | Fig 2 | `figures/n2_feasibility_domains.py` | precomputed boundary data shipped at `data/figure_inputs/fig2_n2_feasibility/` (regenerate via `figures/generate_n2_boundary_data.jl` + `gradual_discriminant.jl` / `abrupt_discriminant.jl`) |
 | Fig 3 | `figures/tipping_prevalence_panels.py` | `2_bank_standard_50_models_n_4-20_128_dirs_muB_{-0.1, 0.0, 0.1}` |
 | Fig 4 | `figures/assemble_published_models_figure.py` (panel A: `lever_and_multimodel_prevalence.py`, panel B: `multimodel_alpha_eff_metrics.py`) | Panel A: shipped CSV at `data/figure_inputs/fig4_lever_branches/` (regenerate via `figures/lever_bifurcation_branches.jl`). Panel B: all 5 other-models banks + Gibbs |
-| Fig S1 | TikZ schematic in paper source (not reproduced from this repo) | — |
-| Fig S2, S9, S10–S13 | `figures/si_panels.py` | All 4 banks (μ_B variants + unique_equilibrium) |
-| Fig S3 | `figures/muA_muB_grid_panels.py` | 9 banks `2_bank_standard_*_muA_*_muB_*` |
-| Fig S4 | `figures/all_negative_boundary_types.py` | `2_bank_all_negative_*` |
-| Fig S5 | `figures/alpha_eff_hull_vs_taylor.py` | `2_bank_standard_*_muB_*` (with `alpha_eff_taylor` + `alpha_eff_hull`) |
-| Fig S7 | `figures/gibbs_boundary_types_row.py` | Gibbs bank (with `alpha_eff_taylor` + `alpha_eff_hull`) |
-| Fig S8 | `figures/multimodel_alpha_eff_metrics.py` (log-log mode) | All 5 other-models banks + Gibbs |
+| Fig S1 | TikZ source at `figures/boundary_types_schematic.tex` (compiled to `data/figure_inputs/boundary_types_fig.pdf`) | — |
+| Fig S2 | `figures/figure_spectral_density.py` | — (analytic ensemble; no bank) |
+| Fig S3, F6, F7, F8 | `figures/muA_muB_grid_panels.py` (one panel per boundary type: fold → S3; gradual → F6; unstable → F7; success → F8) | 9 banks `2_bank_standard_*_muA_*_muB_*` |
+| Fig S4 | `figures/alpha_eff_hull_vs_taylor.py` | `2_bank_standard_*_muB_*` (with `alpha_eff_taylor` + `alpha_eff_hull`) |
+| Fig S5 | precomputed PDF shipped at `data/figure_inputs/replicate_gibbs_pstab.pdf` (no script in repo) | — |
+| Fig S6 | `figures/gibbs_boundary_types_row.py` | Gibbs bank (with `alpha_eff_taylor` + `alpha_eff_hull`) |
+| Fig S7 | `figures/multimodel_alpha_eff_metrics.py` (log-log mode) | All 5 other-models banks + Gibbs |
+| Fig B1 | `figures/verify_weyl_bounds.py` | — (analytic) |
+| Figs F2–F5 | `figures/si_panels.py` (boundary fractions, δ_c, x_min, hysteresis) | All 4 banks (μ_B variants + unique_equilibrium) |
+| Fig F9 | `figures/all_negative_boundary_types.py` | `2_bank_all_negative_*` |
 
 To reproduce a figure end-to-end from scratch, run the matching Stage-1
 generator with the paper's config (`pipeline_config.jl`), followed by stages
@@ -244,7 +247,7 @@ julia --startup-file=no postprocess/add_alpha_eff_taylor.jl "data/example_runs/$
 julia --startup-file=no postprocess/add_alpha_eff_hull.jl   "data/example_runs/$BANK"
 ```
 
-### Gibbs replication (Figs S6, S7)
+### Gibbs replication (Figs S5, S6)
 
 ```bash
 # Stage 1 — convert Gibbs reference grid CSV to per-system JSONs
@@ -299,9 +302,9 @@ Post-processing (additive, never overwrites):
 
 | Generator | Modes produced | Used for |
 |-----------|----------------|----------|
-| `pipeline/generate_bank.jl` | `standard`, `unique_equilibrium`, `all_negative` | Random GLV+HOI ensembles (Figs 3, S3, S4, S10–S13) |
-| `pipeline/generate_gibbs_refgrid.jl` | `gibbs` | Gibbs replication, three regimes (Figs S6, S7) |
-| `other_models/generate_bank_<X>.jl` | `lever`, `karatayev`, `aguade`, `mougi`, `stouffer` | Published multispecies models (Fig 4, Fig S8) |
+| `pipeline/generate_bank.jl` | `standard`, `unique_equilibrium`, `all_negative` | Random GLV+HOI ensembles (Figs 3, S3, S4, F2–F9) |
+| `pipeline/generate_gibbs_refgrid.jl` | `gibbs` | Gibbs replication, three regimes (Figs S5, S6) |
+| `other_models/generate_bank_<X>.jl` | `lever`, `karatayev`, `aguade`, `mougi`, `stouffer` | Published multispecies models (Fig 4, Fig S7) |
 
 Each generator writes one JSON per model with `(r, A, B, U, x_star,
 dynamics_mode, alpha_grid, ...)`. Random ray directions **U** (columns of an
@@ -325,7 +328,7 @@ species have per-capita rate below tolerance. If no species has gone extinct
 when the time window ends, the integration is extended once for a doubled
 window. Residual abundances below `tol_pos` are zero-clamped to define the
 attractor; if no extinction has occurred after both passes, the result is
-flagged `:no_extinction`. There is no algebraic equilibrium solve here.
+flagged `:no_extinction`.
 Outputs `x_postboundary_snap`, `n_lost_post`, `snap_reason`.
 
 ### Stage 4 — Backtrack perturbation
@@ -339,7 +342,7 @@ fold events. Outputs `returned_n`, `reversal_frac`, `class_label`,
 
 `postprocess/add_alpha_eff_taylor.jl` and `postprocess/add_alpha_eff_hull.jl`
 add per-system nonlinearity metrics that allow cross-model comparison (used on
-Figs S5, S7, S8). These are additive: they never overwrite scan / post /
+Figs S4, S6, S7). These are additive: they never overwrite scan / post /
 backtrack results.
 
 ---
