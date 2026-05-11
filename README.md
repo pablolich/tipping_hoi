@@ -1,8 +1,7 @@
 # Tipping Points in GLV+HOI Communities
 
-Code for the paper **"Tipping points are typical in ecosystems with higher-order
-interactions"** — preprint:
-<https://www.biorxiv.org/content/10.64898/2026.04.24.720639v1>.
+Code for the paper [**"Tipping points are typical in ecosystems with higher-order
+interactions"**](https://www.biorxiv.org/content/10.64898/2026.04.24.720639v1).
 
 A Julia/Python pipeline for detecting, characterising, and testing the
 reversibility of tipping points in ecological communities described by
