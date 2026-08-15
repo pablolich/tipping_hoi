@@ -164,7 +164,21 @@ function find_event(p_start, p_target, x_start, ws, tol;
         if λ_previous ≥ λ_tol
             x_crit = copy(x_start)
             reset_tracker_options!(ws.tracker)
-            return :unstable, ws.tracker.state.t, x_crit
+            # A2 (stouffer_regeneration_plan.md §3, atn_bank_plan.md §3): the
+            # homotopy has not moved — t is still 1, so delta_c = (1 − Re(t)) ·
+            # max_pert = 0.  This says x_start itself is unstable; it says
+            # nothing about where a boundary is.  Calling it `:unstable`
+            # buried 384 such rays in the shipped Stouffer bank among genuine
+            # instability boundaries found at delta_c > 0.
+            #
+            # STOP CONDITION, not a filterable artifact.  The ATN generator
+            # gates stability at generation (atn_bank_plan.md §6 criterion 5:
+            # λ_max(J_ODE(x*)) < -1e-9 by complex step), so this symbol must
+            # come back EMPTY on the ATN bank.  One hit means the generator
+            # accepted an unstable equilibrium — a generator bug — and the run
+            # stops (plan §11 G2).  Do not remap it back to `:unstable`
+            # downstream; being distinguishable is the entire point.
+            return :unstable_at_start, ws.tracker.state.t, x_crit
         end
     end
 
@@ -190,8 +204,16 @@ function find_event(p_start, p_target, x_start, ws, tol;
 
         x_current .= real.(ws.tracker.state.x)
         if !is_tracking(ws.tracker.state.code) && !is_success(ws.tracker.state.code)
-            event = :fold
             t_end = ws.tracker.state.t
+            # A1 (stouffer_regeneration_plan.md §3): a tracker that dies before
+            # accepting a single step has not found a boundary — it never left
+            # x_start.  The homotopy runs t: 1 → 0 and delta_c = (1 − Re(t_end))
+            # · max_pert, so `accepted_steps == 0 ⟺ t_end == 1 ⟺ delta_c == 0`
+            # exactly; the test is bit-precise and needs no tolerance.  Calling
+            # that case `:fold` is what manufactured 3009 phantom Stouffer
+            # tipping points at zero perturbation
+            # (findings/stouffer_folds_are_unconverged_equilibria.md).
+            event = real(t_end) == 1.0 ? :tracker_failure : :fold
             keep_tracking = false
         else
             if any(xᵢ -> abs(xᵢ) ≤ tol, x_current)
