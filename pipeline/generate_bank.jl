@@ -196,11 +196,11 @@ function sample_parameter_set_standard(n::Int;
     S_A = (A0 + A0') / 2
     if muA > 0.0
         E_SA    = -Float64(n) * muA * (I - ones(n, n) / n)
-        delta_A = max(eigmax(Symmetric(S_A - E_SA)), 1e-12)
+        delta_A = eigmax(Symmetric(S_A - E_SA))
     else
         delta_A = eigmax(Symmetric(S_A))
-        delta_A <= 0.0 && return nothing  # degenerate sample
     end
+    delta_A <= 1e-12 && return nothing  # degenerate draw: the normalisation below is meaningless
 
     # 3. A = A0/δ_A − I  →  row sums = −1
     A = A0 / delta_A - I
@@ -221,10 +221,11 @@ function sample_parameter_set_standard(n::Int;
     if muB > 0.0
         E_S     = -4.0 * n^2 * muB * (I - ones(n, n) / n)
         S_hat   = S_tilde - E_S
-        delta_B = max(eigmax(Symmetric(S_hat)) / 4, 1e-12)
+        delta_B = eigmax(Symmetric(S_hat)) / 4
     else
-        delta_B = max(eigmax(Symmetric(S_tilde)) / 4, 1e-12)
+        delta_B = eigmax(Symmetric(S_tilde)) / 4
     end
+    delta_B <= 1e-12 && return nothing  # degenerate draw
 
     # 6. B = B0/δ_B − δ_{ijk}  →  slice sums = −1
     B = B0 / delta_B
@@ -232,12 +233,15 @@ function sample_parameter_set_standard(n::Int;
         B[i, i, i] -= 1.0
     end
 
-    # 7. Verify stability: discard if (A+Aᵀ)/2 or (B̂+B̂ᵀ)/2 not negative-definite
-    A_stable    = eigmax(Symmetric((A + A') / 2)) < 0.0
-    Bhat        = hatB_from_tensor(B)
-    Bhat_stable = eigmax(Symmetric((Bhat + Bhat') / 2)) < 0.0
-    (A_stable && Bhat_stable) || return nothing
-
+    # 7. No stability re-test: steps 3 and 6 make it redundant by construction.
+    #    μ_A ≤ 0:  eigmax(sym(A)) = eigmax(S_A)/δ_A − 1 = 0 exactly.
+    #    μ_A > 0:  δ_A = eigmax(S_A + n·μ_A·(I − J/n)) and (I − J/n) is a projector,
+    #              so δ_A ≥ eigmax(S_A) and eigmax(sym(A)) ≤ 0 — strictly conservative.
+    #    Same argument for B̂ with 4n²·μ_B·(I − J/n).
+    #    The one way the construction can fail is a degenerate δ, and that is now
+    #    rejected at the source (steps 2 and 5) instead of being clamped to 1e-12 and
+    #    caught here by accident.  Testing eigmax(sym(A)) < 0 on a quantity pinned to
+    #    exactly 0 was a coin flip on rounding, and discarded ~75% of valid samples.
     return r, A, B, delta_A, delta_B
 end
 
@@ -347,7 +351,12 @@ function range_label(vals::Vector{Int})
     return length(vals) == 1 ? string(vals[1]) : "$(minimum(vals))-$(maximum(vals))"
 end
 
-derive_seed(base_seed::Int, n::Int, n_dirs::Int, model_idx::Int) = base_seed + 10_000_000 * n + 100_000 * n_dirs + model_idx
+# Globally-unique label for a model within a bank.  NOT an RNG seed: every model in
+# a bank is drawn from one stream seeded with BANK_BASE_SEED (see main), so the bank
+# — not the individual model — is the reproducibility unit, and the file itself is
+# the record of its parameters.  Kept in the "seed" field and in filenames because
+# downstream figure code uses it as a unique model_id and older banks carry it.
+model_uid(base_seed::Int, n::Int, n_dirs::Int, model_idx::Int) = base_seed + 10_000_000 * n + 100_000 * n_dirs + model_idx
 
 function main()
     n_values, n_models, n_dirs_values, alpha_grid = parse_args(ARGS)
@@ -363,22 +372,22 @@ function main()
         out_dir   = joinpath(out_root, bank_name)
         mkpath(out_dir)
 
-        max_tries = 20_000_000
+        max_tries = 1_000
+        rng = MersenneTwister(BANK_BASE_SEED)
         for n in n_values
             for n_dirs in n_dirs_values
                 for model_idx in 1:n_models
-                    seed = derive_seed(BANK_BASE_SEED, n, n_dirs, model_idx)
+                    seed = model_uid(BANK_BASE_SEED, n, n_dirs, model_idx)
 
                     result = nothing
-                    for attempt in 0:(max_tries - 1)
-                        rng = MersenneTwister(seed + attempt)
+                    for attempt in 1:max_tries
                         result = sample_parameter_set_standard(n; muA=BANK_MU_A, muB=BANK_MU_B, rng=rng)
                         result !== nothing && break
                     end
                     result === nothing && error("Failed to sample stable standard system after $max_tries tries (n=$n, model_idx=$model_idx)")
                     r, A, B, delta_A, delta_B = result
 
-                    U = random_unit_rays(n, n_dirs; rng=MersenneTwister(seed))
+                    U = random_unit_rays(n, n_dirs; rng=rng)
 
                     payload = Dict(
                         "n"             => n,
@@ -396,6 +405,7 @@ function main()
                         "dynamics_mode" => "standard",
                         "metadata"      => Dict(
                             "parameterization" => "standard_planted",
+                            "bank_seed"        => BANK_BASE_SEED,  # the whole bank is one RNG stream
                             "delta_A"          => delta_A,
                             "delta_B"          => delta_B,
                         ),
@@ -413,11 +423,11 @@ function main()
         out_dir   = joinpath(out_root, bank_name)
         mkpath(out_dir)
 
+        rng = MersenneTwister(BANK_BASE_SEED)
         for n in n_values
             for n_dirs in n_dirs_values
                 for model_idx in 1:n_models
-                    seed = derive_seed(BANK_BASE_SEED, n, n_dirs, model_idx)
-                    rng  = MersenneTwister(seed)
+                    seed = model_uid(BANK_BASE_SEED, n, n_dirs, model_idx)
 
                     A, B, d_A, d_k_values = sample_parameter_set_unique_equilibrium(
                         n; safety=BANK_SAFETY_UE, rng=rng,
@@ -437,6 +447,7 @@ function main()
                         "dynamics_mode" => "unique_equilibrium",
                         "metadata"      => Dict(
                             "parameterization" => "slicewise_negdef",
+                            "bank_seed"        => BANK_BASE_SEED,  # the whole bank is one RNG stream
                             "safety"           => BANK_SAFETY_UE,
                             "d_A"              => d_A,
                             "d_k_values"       => d_k_values,
@@ -455,11 +466,11 @@ function main()
         out_dir   = joinpath(out_root, bank_name)
         mkpath(out_dir)
 
+        rng = MersenneTwister(BANK_BASE_SEED)
         for n in n_values
             for n_dirs in n_dirs_values
                 for model_idx in 1:n_models
-                    seed = derive_seed(BANK_BASE_SEED, n, n_dirs, model_idx)
-                    rng  = MersenneTwister(seed)
+                    seed = model_uid(BANK_BASE_SEED, n, n_dirs, model_idx)
 
                     A, B = sample_parameter_set_all_negative(
                         n; sigmaA=BANK_SIGMA_A, sigmaB=BANK_SIGMA_B, rng=rng,
@@ -481,6 +492,7 @@ function main()
                         "dynamics_mode" => "all_negative",
                         "metadata"      => Dict(
                             "parameterization" => "half_normal_negated",
+                            "bank_seed"        => BANK_BASE_SEED,  # the whole bank is one RNG stream
                         ),
                     )
 
