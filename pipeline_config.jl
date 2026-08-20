@@ -42,9 +42,42 @@ const POST_SS_PERCAP_TOL = 1e-6
 # Set POST_POSTBOUNDARY_FRAC to a Float64 > 1 to override the symmetric default
 # (symmetric default: post = 2 - pre, e.g. pre=0.99 → post=1.01).
 const POST_POSTBOUNDARY_FRAC = nothing
-const POST_SEED              = nothing   # set to an Int for reproducible nudge directions
+const POST_SEED              = nothing   # mixed into the per-ray nudge seed; see below
 const POST_NUDGE_ABS         = 1e-8
 const POST_NUDGE_REL         = 1e-6
+
+# Skip the ODE for rays the scan never found a boundary for (flag == "success",
+# i.e. delta_c == max_pert).  There is no boundary to step past, every consumer
+# already discards the landing state — figures/explore_2D_julia_helper.jl:99
+# skips them, backtrack_perturbation.jl maps the null snap to "missing_x_post" —
+# and on the parameterization_v2 banks they are 4% of rays but ~64% of stage-3
+# runtime (~0.7-1.7 s each against ~5 ms for a fold ray).
+#
+# Default `false` so a bank measured before this flag existed reproduces
+# exactly.  Measured exposure of flipping it on the submitted banks: of 202,752
+# rows sampled across the three banks that carry post_dynamics_results, 5,237
+# are flag == "success" and 4 of those (0.002% of all rows) hold a real
+# x_postboundary_snap that would become null.  Set `true` for new banks.
+const POST_SKIP_NO_BOUNDARY = false
+
+# Record the solver's own retcode in snap_reason ("ode_fail_Unstable",
+# "ode_fail_MaxIters", ...) instead of a flat "ode_fail".  The two mean very
+# different things: `Unstable` is a trajectory diverging in finite time — a real
+# statement that the model has no bounded post-boundary state — while
+# `MaxIters` is only a step-budget failure.  On parameterization_v2 the split is
+# 2,069 vs 9 over 7,365 fold rays, which the flat label hides entirely.
+#
+# Nothing under figures/ or postprocess/ reads snap_reason, so this is
+# diagnostic only; the "ode_fail" prefix is kept so a startswith test still
+# works.  Default `false` to keep stored strings byte-identical.
+const POST_RECORD_RETCODE = false
+
+# Skip model files that already carry post_dynamics_results.  Default `true`:
+# the driver rewrites each file IN PLACE and drops backtrack_results on the way
+# through (see the delete! at the end of scan_model_post_dynamics), so a re-run
+# over a finished bank silently destroys stage-4 output.  Pass --force to
+# recompute anyway.
+const POST_SKIP_DONE = true
 
 # ─── 6. Backtrack perturbation (backtrack_perturbation.jl) ──────────────────
 const BACK_POST_DELTA_ABS   = nothing   # set to Float64 to override (1 - SCAN_PREBOUNDARY_FRAC)
