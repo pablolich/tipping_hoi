@@ -8,6 +8,7 @@
 using LinearAlgebra
 using JSON3
 using Random
+using SHA
 using DifferentialEquations
 using SciMLBase
 
@@ -17,6 +18,33 @@ include(joinpath(@__DIR__, "..", "utils", "math_utils.jl"))
 include(joinpath(@__DIR__, "..", "utils", "json_utils.jl"))
 include(joinpath(@__DIR__, "..", "utils", "glvhoi_utils.jl"))
 include(joinpath(@__DIR__, "..", "utils", "dynamics_cfg_utils.jl"))
+include(joinpath(@__DIR__, "..", "utils", "provenance_utils.jl"))
+
+# Every source file whose contents can change what this driver writes: its own
+# include closure plus the model definitions glvhoi_utils.jl pulls in.  Those
+# six eco-model files are listed even though stage 3 never calls into them —
+# glvhoi_utils.jl includes them, so they are part of what loaded, and
+# over-inclusion is the safe direction for a fingerprint.
+#
+# Mirrors SCAN_SOURCE_FILES in pipeline/boundary_scan.jl; keep the two in step.
+const POST_SOURCE_FILES = [
+    "pipeline/post_boundary_dynamics.jl",
+    "pipeline_config.jl",
+    "utils/model_store_utils.jl",
+    "utils/math_utils.jl",
+    "utils/json_utils.jl",
+    "utils/glvhoi_utils.jl",
+    "utils/dynamics_mode_utils.jl",
+    "utils/dynamics_cfg_utils.jl",
+    "utils/ode_snap_utils.jl",
+    "utils/provenance_utils.jl",
+    "other_models/lever_model.jl",
+    "other_models/karatayev_model.jl",
+    "other_models/aguade_model.jl",
+    "other_models/mougi_model.jl",
+    "other_models/stouffer_model.jl",
+    "other_models/atn_model.jl",
+]
 
 function usage_error()
     msg = """
@@ -103,10 +131,50 @@ against reltol 1e-8.
 ray_rng(tag::AbstractString, alpha_idx::Integer, ray_id::Integer) =
     MersenneTwister(hash((tag, alpha_idx, ray_id, POST_SEED)) % typemax(Int32))
 
+"""
+    run_metadata(force) -> (flags, provenance)
+
+The switches and the code identity behind one invocation, built once and stamped
+into every file the run writes.
+
+This exists because the config block used to record the fractions and tolerances
+and nothing else, which left the flags below invisible: a bank enriched with
+`POST_SKIP_NO_BOUNDARY = true` was indistinguishable from one without except by
+inferring it from `snap_reason` strings, and `POST_RECORD_RETCODE` left no trace
+at all when nothing failed.
+
+`threads` is recorded as a fact about the run, not as something that changes the
+answer — `ray_rng` seeds per ray, so the result is thread-count independent.
+"""
+function run_metadata(force::Bool)
+    git = git_provenance()
+    flags = Dict{String,Any}(
+        "skip_no_boundary" => POST_SKIP_NO_BOUNDARY,
+        "record_retcode"   => POST_RECORD_RETCODE,
+        "skip_done"        => POST_SKIP_DONE,
+        "forced"           => force,
+        "seed"             => POST_SEED,
+        "nudge_abs"        => POST_NUDGE_ABS,
+        "nudge_rel"        => POST_NUDGE_REL,
+        "ss_percap_tol"    => POST_SS_PERCAP_TOL,
+        "threads"          => Threads.nthreads(),
+    )
+    prov = Dict{String,Any}(
+        "git_sha"            => git.sha,
+        "git_dirty"          => git.dirty,
+        "code_sha"           => code_fingerprint(POST_SOURCE_FILES),
+        "post_source_files"  => POST_SOURCE_FILES,
+        "julia_version"      => string(VERSION),
+    )
+    return (flags=flags, provenance=prov)
+end
+
 function scan_model_post_dynamics(model::Dict{String,Any},
                                   dyn::Dict{String,Any},
                                   seq::Dict{String,Any},
-                                  tag::AbstractString="")
+                                  tag::AbstractString="",
+                                  meta=nothing,
+                                  source_path::AbstractString="")
     n = Int(model["n"])
     dmode = get(model, "dynamics_mode", "standard")
     A = nested_to_matrix(model["A"])
@@ -222,6 +290,12 @@ function scan_model_post_dynamics(model::Dict{String,Any},
         ),
         "selection" => Dict("mode" => "full_model"),
     )
+    if meta !== nothing
+        output["post_dynamics_config"]["flags"] = meta.flags
+        # Top-level, mirroring boundary_scan.jl's `scan_provenance`.
+        output["post_dynamics_provenance"] =
+            merge(meta.provenance, Dict{String,Any}("source_path" => source_path))
+    end
     output["post_dynamics_results"] = alpha_results
     haskey(output, "backtrack_results") && delete!(output, "backtrack_results")
     return output
@@ -241,6 +315,7 @@ function main()
         "eps_extinct" => ZERO_ABUNDANCE,
     )
     seq = build_seq_cfg()
+    meta = run_metadata(opts.force)
 
     println("Post-boundary dynamics")
     println("  run: $run_root")
@@ -250,6 +325,8 @@ function main()
     println("  skip_no_boundary: $POST_SKIP_NO_BOUNDARY")
     println("  record_retcode: $POST_RECORD_RETCODE")
     println("  skip_done: $(POST_SKIP_DONE && !opts.force)$(opts.force ? " (--force)" : "")")
+    println("  git_sha: $(meta.provenance["git_sha"])$(meta.provenance["git_dirty"] ? " (dirty)" : "")")
+    println("  code_sha: $(meta.provenance["code_sha"])")
     println("  tspan: $(dyn["tspan"])")
     println("  reltol: $(dyn["reltol"])")
     println("  abstol: $(dyn["abstol"])")
@@ -293,7 +370,8 @@ function main()
             end
 
             println("[$idx/$n_models] processing $model_name")
-            payload = scan_model_post_dynamics(model, dyn, seq, model_name)
+            payload = scan_model_post_dynamics(model, dyn, seq, model_name, meta,
+                                               abspath(model_path))
             safe_write_json(model_path, payload)
             n_written += 1
             println("      wrote $model_name")
