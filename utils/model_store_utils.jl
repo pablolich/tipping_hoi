@@ -12,12 +12,32 @@ function resolve_model_path(root::AbstractString, model_file::AbstractString)
     return joinpath(root, base)
 end
 
+"""
+    resolve_model_paths(root, model_file)
+
+All model JSONs under `root`, recursively.  Recursion is what lets a sharded
+scan output (`<run>/<cell>/shard<k>/model_*.json`) be handed to a driver as one
+directory instead of one invocation per shard; it is a no-op on the flat bank
+layouts under `data/example_runs/`, none of which has a subdirectory.
+
+The `_chunk_` name filter is deliberate and must stay a NAME filter: the chunk
+files in the aguade / karatayev / mougi / stouffer banks do carry a valid
+`scan_results` payload, so swapping this for a content test would newly pull in
+four files per bank that the submitted runs excluded.
+
+Files that are not model payloads at all (a `scan_manifest.json` beside the
+shard, the pre-scan `gibbs_refgrid` systems) are *not* filtered here — that
+needs the parsed file — but callers are expected to skip a payload with no
+`scan_results` rather than die on it.
+"""
 function resolve_model_paths(root::AbstractString, model_file::Union{Nothing,String})
     if model_file === nothing
-        paths = sort([joinpath(root, f) for f in readdir(root)
-                      if endswith(f, ".json") && !contains(f, "_chunk_")])
+        paths = String[]
+        for (dir, _, files) in walkdir(root), f in files
+            endswith(f, ".json") && !contains(f, "_chunk_") && push!(paths, joinpath(dir, f))
+        end
         isempty(paths) && error("No model JSON files found in $root")
-        return paths
+        return sort(paths)
     end
     path = resolve_model_path(root, model_file)
     isfile(path) || error("Model file not found: $path")

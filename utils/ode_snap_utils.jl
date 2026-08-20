@@ -34,8 +34,13 @@ function make_percap_terminate_cb(f_tol::Real, u_thresh::Real)
     return DiscreteCallback(condition, terminate!; save_positions=(false, false))
 end
 
-function random_direction(extinct_mask::AbstractVector{Bool})
-    v = randn(length(extinct_mask))
+# `rng` is left untyped on purpose: backtrack_perturbation.jl includes this file
+# without `using Random`, so an ::AbstractRNG annotation would fail at method
+# definition time there.  A default argument is evaluated at call time, so
+# Random.default_rng() costs that caller nothing.
+function random_direction(extinct_mask::AbstractVector{Bool},
+                          rng=Random.default_rng())
+    v = randn(rng, length(extinct_mask))
     v[extinct_mask] .= 0.0
     nrm = norm(v)
     if nrm == 0.0
@@ -61,6 +66,12 @@ function apply_signed_nudge(x_start::AbstractVector{<:Real},
     return (x0=x_plus, dir_used=dir, sign=1)
 end
 
+# `rng` is threaded through rather than taken from the global stream so callers
+# can seed per ray: that makes the nudge independent of how rays are scheduled
+# across threads AND of the order the driver walks the files in.
+#
+# `record_retcode` swaps the flat `:ode_fail` for `:ode_fail_<RetCode>`.  See
+# POST_RECORD_RETCODE in pipeline_config.jl for why the distinction matters.
 function integrate_and_snap(A_eff::AbstractMatrix{<:Real},
                             B_eff::Array{<:Real,3},
                             r0::AbstractVector{<:Real},
@@ -68,16 +79,20 @@ function integrate_and_snap(A_eff::AbstractMatrix{<:Real},
                             delta_post::Real,
                             x_start::AbstractVector{<:Real},
                             dyn::Dict{String,Any},
-                            seq::Dict{String,Any})
+                            seq::Dict{String,Any};
+                            rng=Random.default_rng(),
+                            record_retcode::Bool=false)
     r_eff = r0 .+ delta_post .* u
     f! = make_unified_rhs(A_eff, B_eff, r_eff)
 
     extinct_mask = x_start .<= dyn["eps_extinct"]
     active_norm  = norm(x_start[.!extinct_mask])
     nudge_mag    = max(seq["nudge_abs"], seq["nudge_rel"] * active_norm)
-    dir          = random_direction(extinct_mask)
+    dir          = random_direction(extinct_mask, rng)
     nudge        = apply_signed_nudge(x_start, dir, nudge_mag, seq["tol_neg"])
     x0           = nudge.x0
+
+    failreason(s) = record_retcode ? Symbol("ode_fail_", string(s.retcode)) : :ode_fail
 
     ext_cb = make_extinction_cb(dyn["eps_extinct"])
     ss_cb  = make_percap_terminate_cb(POST_SS_PERCAP_TOL, ZERO_ABUNDANCE)
@@ -87,7 +102,7 @@ function integrate_and_snap(A_eff::AbstractMatrix{<:Real},
                                          callback=cbs,
                                          save_everystep=false, save_start=false, dense=false)
     !SciMLBase.successful_retcode(sol) &&
-        return (reason=:ode_fail, x_end=nothing, x_snap=nothing, dist=missing, n_equilibria=0)
+        return (reason=failreason(sol), x_end=nothing, x_snap=nothing, dist=missing, n_equilibria=0)
 
     x_end   = sol.u[end]
     n       = length(x_end)
@@ -102,7 +117,7 @@ function integrate_and_snap(A_eff::AbstractMatrix{<:Real},
                                               callback=cbs,
                                               save_everystep=false, save_start=false, dense=false)
         !SciMLBase.successful_retcode(sol2) &&
-            return (reason=:ode_fail, x_end=nothing, x_snap=nothing, dist=missing, n_equilibria=0)
+            return (reason=failreason(sol2), x_end=nothing, x_snap=nothing, dist=missing, n_equilibria=0)
         x_end   = sol2.u[end]
         n_alive = count(>(seq["tol_pos"]), x_end)
     end
