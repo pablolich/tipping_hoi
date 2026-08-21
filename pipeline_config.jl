@@ -53,12 +53,16 @@ const POST_NUDGE_REL         = 1e-6
 # and on the parameterization_v2 banks they are 4% of rays but ~64% of stage-3
 # runtime (~0.7-1.7 s each against ~5 ms for a fold ray).
 #
-# Default `false` so a bank measured before this flag existed reproduces
-# exactly.  Measured exposure of flipping it on the submitted banks: of 202,752
-# rows sampled across the three banks that carry post_dynamics_results, 5,237
-# are flag == "success" and 4 of those (0.002% of all rows) hold a real
-# x_postboundary_snap that would become null.  Set `true` for new banks.
-const POST_SKIP_NO_BOUNDARY = false
+# Was `false` so a bank measured before this flag existed reproduces exactly.
+# Measured exposure of flipping it on the submitted banks: of 202,752 rows
+# sampled across the three banks that carry post_dynamics_results, 5,237 are
+# flag == "success" and 4 of those (0.002% of all rows) hold a real
+# x_postboundary_snap that would become null.
+#
+# Set `true` on 2026-08-20 for the parameterization_v2_unified stage-3 run —
+# a new bank, so nothing to reproduce.  The submitted banks under data/ are
+# read-only on this branch and are not re-run, so the flip cannot reach them.
+const POST_SKIP_NO_BOUNDARY = true
 
 # Record the solver's own retcode in snap_reason ("ode_fail_Unstable",
 # "ode_fail_MaxIters", ...) instead of a flat "ode_fail".  The two mean very
@@ -69,8 +73,15 @@ const POST_SKIP_NO_BOUNDARY = false
 #
 # Nothing under figures/ or postprocess/ reads snap_reason, so this is
 # diagnostic only; the "ode_fail" prefix is kept so a startswith test still
-# works.  Default `false` to keep stored strings byte-identical.
-const POST_RECORD_RETCODE = false
+# works.  Was `false` to keep stored strings byte-identical.
+#
+# Set `true` on 2026-08-20 for the parameterization_v2_unified stage-3 run.
+# A 27-model probe over the (tier, b, n) corners put 13.4% of rays on the
+# ode_fail path (10.8% of all rays being fold|ode_fail), and the flat label
+# merges "diverged in finite time" with "ran out of steps" — which is the
+# Attractors question itself, not a footnote.  Free to record now; recovering
+# it later would need a --force re-run over the whole tree.
+const POST_RECORD_RETCODE = true
 
 # Skip model files that already carry post_dynamics_results.  Default `true`:
 # the driver rewrites each file IN PLACE and drops backtrack_results on the way
@@ -83,3 +94,13 @@ const POST_SKIP_DONE = true
 const BACK_POST_DELTA_ABS   = nothing   # set to Float64 to override (1 - SCAN_PREBOUNDARY_FRAC)
 const BACK_INVASION_TOL     = 1e-10
 const BACK_EPS_SEED_EXTINCT = nothing   # defaults to 10 * ZERO_ABUNDANCE
+
+# Skip model files that already carry backtrack_results.  Mirrors POST_SKIP_DONE,
+# but for a different reason: stage 4 preserves everything already in the payload
+# (backtrack_model copies every key of the input before adding its own), so a
+# re-run is not destructive the way a stage-3 re-run is.  What it is, is
+# expensive — every ray with a non-null x_postboundary_snap rebuilds an HC
+# tracker and integrates an ODE.  With the skip on, re-submitting a killed array
+# task is the intended recovery and costs only the models it had not reached.
+# Pass --force to recompute anyway.
+const BACK_SKIP_DONE = true

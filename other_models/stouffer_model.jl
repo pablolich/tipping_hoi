@@ -3,6 +3,7 @@ using Random
 using Distributions
 using DifferentialEquations
 using SciMLBase
+using Sundials                     # DifferentialEquations does not re-export CVODE_BDF
 using HomotopyContinuation
 
 if !@isdefined(LeverOriginalParams)
@@ -18,8 +19,16 @@ const STOUFFER_DEFAULT_B0 = 0.5
 const STOUFFER_DEFAULT_K = 1.0
 const STOUFFER_DEFAULT_Mb = 1.0
 const STOUFFER_DEFAULT_AR = 1.0
-const STOUFFER_DEFAULT_AX = 0.314
+# B2 (stouffer_regeneration_plan.md §3): S&B 2010 state all consumers are
+# invertebrates, so a_x/a_r = 0.2227 (Otto et al. 2007 Methods), not Brose's
+# 0.314.  a_y = 8 a_x, so y_i = 8 is unchanged either way.
+const STOUFFER_DEFAULT_AX = 0.2227
 const STOUFFER_DEFAULT_AY = 8.0 * STOUFFER_DEFAULT_AX
+# B3: S&B's own hard extinction floor.  `B <= 1e-30 -> B = 0`, irreversibly.
+const STOUFFER_EXT_FLOOR = 1e-30
+# The six connectance values the shipped generator draws from; kept because they
+# are what every measurement on record used.
+const STOUFFER_CONNECTANCE_SET = (0.10, 0.12, 0.14, 0.16, 0.18, 0.20)
 
 struct StoufferParams
     n::Int
@@ -338,6 +347,80 @@ function _sample_stouffer_body_masses(adj::AbstractMatrix{Bool},
     return M
 end
 
+"""
+    stouffer_gmrf_masses(adj, basal_mask; rng, Mb, mu, sd) -> M
+
+**B5**: an EXACT draw from the mass target the shipped random-walk Metropolis
+only approximates.  Same target, different sampler.
+
+S&B's target is the product over trophic links of `Normal(z_i − z_j; 6.1, 5.75)`
+with basal log-masses pinned at `log M_b`.  Writing `A` for the link-incidence
+matrix restricted to consumer columns (+1 on the predator, −1 on the prey, and a
+cannibal link contributing a constant and so an all-zero row), the log-target is
+
+    −(1/2σ²) ‖A z_c − μ1‖²
+
+so the consumer log-masses are multivariate normal with precision `Λ = AᵀA/σ²`
+and mean `Λ⁻¹ Aᵀ(μ1)/σ²`.  `Λ` is positive definite exactly because every
+consumer is required to have a prey-path down to a basal species — that pins the
+last free constant — which the niche sampler already enforces.
+
+S&B approximated this distribution by nested sampling; sampling it in closed form
+is at least as faithful and removes "unconverged MCMC" as an objection.  The
+shipped RWM stays available as `_sample_stouffer_body_masses` for gate G7.
+
+`(6.1, 5.75)` are S&B's own stated values and are NOT tuned here.  That they are
+unreachable from either empirical source S&B cite is a finding about the source
+paper, disclosed in the SI — not a licence to change the number
+(`scratch/stouffer_bank_audit/STOUFFER_MODEL_FIDELITY.md` §3).
+"""
+function stouffer_gmrf_masses(adj::AbstractMatrix{Bool},
+                              basal_mask::AbstractVector{Bool};
+                              rng::AbstractRNG,
+                              Mb::Real = STOUFFER_DEFAULT_Mb,
+                              mu::Real = STOUFFER_LOGRATIO_MEAN,
+                              sd::Real = STOUFFER_LOGRATIO_SD)
+    n = size(adj, 1)
+    cons = findall(.!basal_mask)
+    # Self-links are excluded: z_i − z_i is identically 0, so a cannibal link
+    # contributes the constant −(0 − μ)²/2σ² and carries no information about z.
+    links = [(i, j) for i in 1:n for j in 1:n if adj[i, j] && i != j]
+    (isempty(cons) || isempty(links)) && return fill(Float64(Mb), n)
+
+    idx = Dict(s => k for (k, s) in enumerate(cons))
+    L = length(links)
+    A = zeros(Float64, L, length(cons))
+    @inbounds for (l, (i, j)) in enumerate(links)
+        haskey(idx, i) && (A[l, idx[i]] += 1.0)
+        haskey(idx, j) && (A[l, idx[j]] -= 1.0)
+    end
+
+    sd2 = Float64(sd)^2
+    Λ = Symmetric(A' * A ./ sd2)
+    b = A' * fill(Float64(mu), L) ./ sd2
+
+    # A rank check rather than a blind factorisation: rank deficiency would mean
+    # a consumer with no path to a basal species, which the niche sampler is
+    # supposed to have excluded.  The ridge is a guard, not a modelling choice,
+    # and it fires on no web the sampler emits.
+    Λm = Matrix(Λ)
+    if rank(Λm) < length(cons)
+        Λm += 1e-9 * I
+    end
+    mean_z = Λm \ b
+    # Cov = Λ⁻¹ = (LLᵀ)⁻¹ = L⁻ᵀL⁻¹, so `mean + Lᵀ \ ξ` has exactly that covariance.
+    Lc = cholesky(Symmetric(Λm)).L
+    z_c = mean_z .+ (Lc' \ randn(rng, length(cons)))
+
+    logM = fill(log(Float64(Mb)), n)
+    @inbounds for (k, s) in enumerate(cons)
+        logM[s] = z_c[k]
+    end
+    # exp overflows to Inf above ~709; clamping keeps a pathological draw finite
+    # so it is rejected downstream by an explicit criterion rather than by a NaN.
+    return exp.(clamp.(logM, -700.0, 700.0))
+end
+
 function _stouffer_weight_matrix(adj::AbstractMatrix{Bool};
                                  rng::AbstractRNG,
                                  logmean::Float64,
@@ -409,59 +492,155 @@ function sample_stouffer_params(n::Int = 6;
         K=K, B0=B0, Mb=Mb, ar=ar, ax=ax, ay=ay)
 end
 
+# ELTYPE-GENERIC BY CONTRACT.  The signature is `AbstractVector`, not
+# `AbstractVector{<:Real}`, and nothing inside converts to Float64, so a complex
+# probe propagates.  That is what lets the bank generator take its Jacobians by
+# complex step rather than by finite difference — a prohibition that is not
+# hypothetical here: elsewhere in this revision a *forward* finite difference
+# accepted 154 of 154 degenerate producer monocultures, with the verdict set by
+# the sign of the differencing step
+# (review-1_responses/stouffer_regeneration_plan.md §3 B4).
+# For Float64 input the arithmetic is unchanged.
+"""
+    stouffer_params_from_web(adj, basal_mask, connectance; rng, ax, ...) -> StoufferParams
+
+Build the corrected S&B model on an ALREADY-DRAWN web.  The web is a parameter
+rather than something this function samples, because the faithful sampler is
+Williams & Martinez (2000) as published — cannibalism permitted, the smallest
+niche value forced basal, isolated species rejected — and that sampler lives in
+`atn_model.jl` (`atn_niche_web`), shared verbatim with the ATN family so the two
+Fig. 4b points are drawn from one topology model.  See
+`scratch/stouffer_p0/REPORT.md` §10: two thirds of the webs
+`_sample_stouffer_niche_web` draws are not valid niche-model webs by the
+definition of the model it cites.
+
+Everything downstream of the web is S&B's own: exact GMRF masses from
+(6.1, 5.75), log-normal `w_ij` at ln-mean −3.0 / ln-sd 1.5, flat `e = 0.85`,
+`x_i = (a_x/a_r)(M_i/M_b)^(−1/4)` and `y_i = a_y/a_x = 8`.  Draw order is
+masses → weights, matching `scratch/stouffer_p0/tier_scan.py`.
+"""
+function stouffer_params_from_web(adj::AbstractMatrix{Bool},
+                                  basal_mask::AbstractVector{Bool},
+                                  connectance::Real;
+                                  rng::AbstractRNG,
+                                  K::Real = STOUFFER_DEFAULT_K,
+                                  B0::Real = STOUFFER_DEFAULT_B0,
+                                  Mb::Real = STOUFFER_DEFAULT_Mb,
+                                  ar::Real = STOUFFER_DEFAULT_AR,
+                                  ax::Real = STOUFFER_DEFAULT_AX,
+                                  ay::Real = STOUFFER_DEFAULT_AY)
+    n = size(adj, 1)
+    M = stouffer_gmrf_masses(adj, basal_mask; rng = rng, Mb = Mb)
+    w = _stouffer_weight_matrix(adj; rng = rng,
+        logmean = STOUFFER_WEIGHT_LOGMEAN, logsd = STOUFFER_WEIGHT_LOGSD)
+
+    x = zeros(Float64, n)
+    y = zeros(Float64, n)
+    @inbounds for i in 1:n
+        basal_mask[i] && continue
+        x[i] = (Float64(ax) / Float64(ar)) * (M[i] / Float64(Mb))^(-0.25)
+        y[i] = Float64(ay) / Float64(ax)
+    end
+
+    e = _stouffer_assimilation_matrix(adj)
+    return StoufferParams(connectance, adj, basal_mask, w, M, x, y, e;
+        K = K, B0 = B0, Mb = Mb, ar = ar, ax = ax, ay = ay)
+end
+
 function _stouffer_denominators(p::StoufferParams,
-                                B::AbstractVector{<:Real})
+                                B::AbstractVector)
     n = p.n
     length(B) == n || error("_stouffer_denominators expected B of length $(n)")
-    D = fill(p.B0, n)
+    T = promote_type(eltype(B), Float64)
+    D = Vector{T}(undef, n)
     @inbounds for i in 1:n
-        denom = p.B0
+        denom = T(p.B0)
         for prey in p.prey_lists[i]
-            denom += p.w[i, prey] * Float64(B[prey])
+            denom += p.w[i, prey] * B[prey]
         end
         D[i] = denom
     end
     return D
 end
 
+# ELTYPE-GENERIC BY CONTRACT — see the note on `_stouffer_denominators`.
 function stouffer_percapita_growth(p::StoufferParams,
-                                   B::AbstractVector{<:Real},
-                                   dr_full::AbstractVector{<:Real})
+                                   B::AbstractVector,
+                                   dr_full::AbstractVector)
     n = p.n
     length(B) == n || error("stouffer_percapita_growth expected B of length $(n), got $(length(B))")
     length(dr_full) == n || error("stouffer_percapita_growth expected dr_full of length $(n), got $(length(dr_full))")
 
+    T = promote_type(eltype(B), eltype(dr_full), Float64)
     D = _stouffer_denominators(p, B)
-    F = zeros(Float64, n)
-    basal_sum = 0.0
+    F = zeros(T, n)
+    basal_sum = zero(T)
     @inbounds for j in 1:n
         p.basal_mask[j] || continue
-        basal_sum += Float64(B[j])
+        basal_sum += B[j]
     end
 
     @inbounds for i in 1:n
         if p.basal_mask[i]
-            F[i] = (1.0 + Float64(dr_full[i])) * (1.0 - basal_sum / p.K)
+            F[i] = (one(T) + dr_full[i]) * (one(T) - basal_sum / p.K)
         else
-            gain_num = 0.0
+            gain_num = zero(T)
             for prey in p.prey_lists[i]
-                gain_num += p.w[i, prey] * Float64(B[prey])
+                gain_num += p.w[i, prey] * B[prey]
             end
-            F[i] = (-p.x[i] + Float64(dr_full[i])) + p.x[i] * p.y[i] * gain_num / D[i]
+            F[i] = (-p.x[i] + dr_full[i]) + p.x[i] * p.y[i] * gain_num / D[i]
         end
     end
 
     @inbounds for predator in 1:n
         Dk = D[predator]
-        Dk == 0.0 && continue
+        Dk == 0 && continue
         for prey in p.prey_lists[predator]
-            loss = p.x[predator] * p.y[predator] * Float64(B[predator]) *
-                   p.w[predator, prey] * Float64(B[prey]) / (p.e[predator, prey] * Dk)
+            # B1a (stouffer_regeneration_plan.md §3).  S&B eq. (1) loses
+            #     x_k y_k B_k F_kj / e_kj,   F_kj = w_kj B_j / D_k
+            # from prey j, so the PER-CAPITA loss (this array) is that divided
+            # by B_j and carries no B_j factor at all.  The shipped code kept
+            # one, making the absolute loss quadratic in prey biomass and
+            # creating biomass on 87.1% of links (gate G5).
+            loss = p.x[predator] * p.y[predator] * B[predator] *
+                   p.w[predator, prey] / (p.e[predator, prey] * Dk)
             F[prey] -= loss
         end
     end
 
     return F
+end
+
+stouffer_percapita_growth(p::StoufferParams, B::AbstractVector) =
+    stouffer_percapita_growth(p, B, zeros(Float64, p.n))
+
+"""
+    stouffer_row_scale(p, x) -> P
+
+`P_i = D_i^[i is a consumer] * prod_{k in pred(i)} D_k`, the factor
+`build_stouffer_cleared_system` multiplies row `i` by, so that `G = P .* F`
+exactly.  Group-A fix A3 takes `λ_max` from `diag(x ./ P) * J_G` — the true ODE
+Jacobian — rather than from `diag(x) * J_G`, which diagonalises `diag(P) * J_true`
+and does not preserve eigenvalue signs.
+
+Measured consequence at n = 6 (`scratch/stouffer_p0/REPORT.md` §12): the median
+model's `λ_max` comes out **positive** under `diag(x) * J_G` while the truth is
+−2.3e−04, and 20 of 80 models are wrongly rejected as `unstable_at_start`.  This
+routes through `_stouffer_denominators`, as the cleared system does, so the two
+cannot drift apart.
+"""
+function stouffer_row_scale(p::StoufferParams, x::AbstractVector)
+    D = _stouffer_denominators(p, x)
+    T = eltype(D)
+    P = Vector{T}(undef, p.n)
+    @inbounds for i in 1:p.n
+        s = stouffer_is_consumer(p, i) ? D[i] : one(T)
+        for k in p.pred_lists[i]
+            s *= D[k]
+        end
+        P[i] = s
+    end
+    return P
 end
 
 function _make_stouffer_rhs_from_dr(p::StoufferParams,
@@ -473,12 +652,26 @@ function _make_stouffer_rhs_from_dr(p::StoufferParams,
     function f!(dx, B, _, _)
         F = stouffer_percapita_growth(p, B, dr_full)
         @inbounds for i in 1:n
-            dx[i] = Float64(B[i]) * F[i]
+            dx[i] = B[i] * F[i]
         end
         return nothing
     end
 
     return f!
+end
+
+"""
+    stouffer_rhs(p, B, dr_full = 0) -> dB/dt
+
+Out-of-place and eltype-generic, so the complex step propagates.  `dB_i/dt =
+B_i F_i`, which is why an interior equilibrium is a root of `F` and not merely
+of `dB/dt` — the latter has the whole boundary `B_i = 0` as spurious solutions.
+"""
+function stouffer_rhs(p::StoufferParams,
+                      B::AbstractVector,
+                      dr_full::AbstractVector = zeros(Float64, p.n))
+    F = stouffer_percapita_growth(p, B, dr_full)
+    return [B[i] * F[i] for i in 1:p.n]
 end
 
 function make_stouffer_rhs(p::StoufferParams,
@@ -526,6 +719,177 @@ function integrate_stouffer_to_steady(p::StoufferParams,
     f!(du_end, x_eq, nothing, 0.0)
     return (success=true, retcode=string(sol.retcode),
             x_eq=x_eq, du_max=maximum(abs.(du_end)))
+end
+
+"""
+    integrate_stouffer_sb(p, x0; tmax, reltol, abstol, ext_floor, abort_on_extinction)
+        -> (success, retcode, x_eq, du_max, extinct, t_end)
+
+**B3 of `review-1_responses/stouffer_regeneration_plan.md` §3**: S&B's own
+numerics, replacing `integrate_stouffer_to_steady` for anything that generates a
+bank.  Three differences, each of which caused a measured defect in the frozen
+bank:
+
+  * **CVODE_BDF, not `Tsit5()`.**  S&B integrate with LSODE, a stiff BDF code;
+    CVODE_BDF is its direct descendant.  Because `x_i ∝ M_i^(-1/4)`, a 32-decade
+    mass span is ~8 decades of metabolic-rate spread — stiffness, which is
+    exactly where an explicit Runge–Kutta fails.
+  * **No steady-state callback.**  The shipped stop condition reads
+    `integrator.du`, which is not guaranteed current, so the generator accepted
+    whatever the integrator happened to stop at: 0 of the 26 fully-degenerate
+    frozen-bank models pass `max_i |F_i(x*)| < 1e-8`, and those unconverged
+    states are the `delta_c == 0` "folds"
+    (`findings/stouffer_folds_are_unconverged_equilibria.md`).  Run to a fixed
+    horizon instead and let the caller's Newton polish do the converging.
+  * **A hard extinction floor at `B ≤ 1e-30`**, S&B's own, applied irreversibly.
+
+`abort_on_extinction` is exact rather than heuristic: `dB_i/dt` is proportional
+to `B_i`, so zero is absorbing and a floored species can never return — the draw
+can no longer satisfy full persistence and there is nothing left to learn by
+integrating it.  That is what makes `tmax = 1e6` affordable; only draws still
+fully alive pay the long tail.
+"""
+function integrate_stouffer_sb(p::StoufferParams,
+                               x0::AbstractVector{<:Real};
+                               tmax::Real = 1.0e6,
+                               reltol::Real = 1e-10,
+                               abstol::Real = 1e-14,
+                               ext_floor::Real = STOUFFER_EXT_FLOOR,
+                               abort_on_extinction::Bool = true,
+                               wall_cap::Real = Inf,
+                               maxiters::Integer = 10_000_000)
+    n = p.n
+    length(x0) == n || error("integrate_stouffer_sb expected x0 of length $(n), got $(length(x0))")
+
+    f! = _make_stouffer_rhs_from_dr(p, zeros(Float64, n))
+    u_init = Float64.(x0)
+    prob = ODEProblem(f!, u_init, (0.0, Float64(tmax)))
+
+    floor_val = Float64(ext_floor)
+    extinct = Ref(false)
+    timedout = Ref(false)
+
+    condition = function (u, _, _)
+        @inbounds for i in eachindex(u)
+            (u[i] != 0.0 && u[i] <= floor_val) && return true
+        end
+        return false
+    end
+
+    affect! = function (integrator)
+        u = integrator.u
+        hit = false
+        @inbounds for i in eachindex(u)
+            if u[i] != 0.0 && u[i] <= floor_val
+                u[i] = 0.0
+                hit = true
+            end
+        end
+        if hit
+            extinct[] = true
+            u_modified!(integrator, true)
+            abort_on_extinction && terminate!(integrator)
+        end
+        return nothing
+    end
+
+    cb_floor = DiscreteCallback(condition, affect!; save_positions = (false, false))
+
+    # `wall_cap` bounds ONE integration.  Ray and draw cost in this repo is
+    # heavy-tailed — a single draw carried 27% of a 442-draw pilot's CPU — so an
+    # uncapped batch is hostage to its worst member.  A capped draw is recorded
+    # as `timedout` and rejected by name; it is never silently dropped, because
+    # dropping the expensive draws biases the acceptance rate towards whatever is
+    # cheap to integrate.
+    cb = if isfinite(wall_cap)
+        t_start = time()
+        cap = Float64(wall_cap)
+        cb_time = DiscreteCallback(
+            (_, _, _) -> (time() - t_start) > cap,
+            function (integrator)
+                timedout[] = true
+                terminate!(integrator)
+                return nothing
+            end; save_positions = (false, false))
+        CallbackSet(cb_floor, cb_time)
+    else
+        cb_floor
+    end
+
+    sol = DifferentialEquations.solve(prob, CVODE_BDF();
+        callback = cb,
+        reltol = Float64(reltol),
+        abstol = Float64(abstol),
+        maxiters = Int(maxiters),
+        save_everystep = false,
+        save_start = false,
+    )
+
+    if !SciMLBase.successful_retcode(sol)
+        return (success = false, retcode = string(sol.retcode),
+                x_eq = fill(NaN, n), du_max = Inf, extinct = extinct[],
+                timedout = timedout[], t_end = NaN)
+    end
+
+    x_eq = Vector{Float64}(sol.u[end])
+    @. x_eq = max(x_eq, 0.0)
+    du_end = similar(x_eq)
+    f!(du_end, x_eq, nothing, 0.0)
+    return (success = true, retcode = string(sol.retcode),
+            x_eq = x_eq, du_max = maximum(abs.(du_end)), extinct = extinct[],
+            timedout = timedout[], t_end = Float64(sol.t[end]))
+end
+
+"""
+    stouffer_jac_percapita_cs(p, B, dr_full = 0) -> J
+
+`J[i, j] = ∂F_i/∂B_j` by the complex step: perturb `B_j` by `1e-30 im` and read
+`imag(F_i)/1e-30`.  Exact to machine precision, no subtractive cancellation, no
+step to choose.  This is the Jacobian a Newton polish of `F(x) = 0` needs.
+"""
+function stouffer_jac_percapita_cs(p::StoufferParams,
+                                   B::AbstractVector{<:Real},
+                                   dr_full::AbstractVector{<:Real} = zeros(Float64, p.n))
+    n = p.n
+    step = 1e-30
+    Bc = ComplexF64.(B)
+    drc = ComplexF64.(dr_full)
+    J = zeros(Float64, n, n)
+    @inbounds for j in 1:n
+        probe = copy(Bc)
+        probe[j] += im * step
+        F = stouffer_percapita_growth(p, probe, drc)
+        for i in 1:n
+            J[i, j] = imag(F[i]) / step
+        end
+    end
+    return J
+end
+
+"""
+    stouffer_jacobian_complex_step(p, B, dr_full = 0) -> J
+
+`J[i, j] = ∂(B_i F_i)/∂B_j`, the Jacobian of the ODE itself — the object whose
+spectrum decides stability.  **Never finite-difference this** (see the note on
+`_stouffer_denominators`).
+"""
+function stouffer_jacobian_complex_step(p::StoufferParams,
+                                        B::AbstractVector{<:Real},
+                                        dr_full::AbstractVector{<:Real} = zeros(Float64, p.n))
+    n = p.n
+    step = 1e-30
+    Bc = ComplexF64.(B)
+    drc = ComplexF64.(dr_full)
+    J = zeros(Float64, n, n)
+    @inbounds for j in 1:n
+        probe = copy(Bc)
+        probe[j] += im * step
+        dB = stouffer_rhs(p, probe, drc)
+        for i in 1:n
+            J[i, j] = imag(dB[i]) / step
+        end
+    end
+    return J
 end
 
 function stouffer_jacobian_fd(p::StoufferParams,
@@ -611,7 +975,15 @@ function build_stouffer_cleared_system(p::StoufferParams)
                 other == predator && continue
                 other_prod *= D[other]
             end
-            eq -= coeff * x[predator] * x[i] * other_prod
+            # B1b (stouffer_regeneration_plan.md §3): the same drop as B1a, in
+            # the cleared system.  eqs[i] is F_i * P_i with
+            # P_i = D_i^[i consumer] * prod_{k in pred(i)} D_k, and the
+            # per-capita loss term is coeff * x[predator] / D_predator, so
+            # multiplying by P_i leaves coeff * x[predator] * other_prod.  The
+            # x[i] factor here was the polynomial twin of the ODE bug; leaving
+            # one site unfixed makes the ODE and the HC system disagree
+            # silently.
+            eq -= coeff * x[predator] * other_prod
         end
 
         eqs[i] = expand(eq)
