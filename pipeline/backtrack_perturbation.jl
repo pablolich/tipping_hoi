@@ -655,6 +655,22 @@ function integrate_and_classify_return(A_eff::Matrix{Float64},
     r_eff = Vector{Float64}(r0 .+ delta_probe .* u_full)
     f! = unified_rhs_from_slices(A_eff, scratch.Bi_list, r_eff, scratch.rhs_tmp)
     ext_cb = make_extinction_cb(dyn["eps_extinct"])
+    # The same per-capita steady-state terminator stage 3 uses
+    # (utils/ode_snap_utils.jl), and for the same reason: without it `returned_n`
+    # below is not a statement about the dynamics but about ODE_TSPAN_END -- it
+    # counts whichever species happened to be above the floor at t = 10000, and
+    # on the n=4 and n=10 fixtures 43% and 45% of these solves are still at
+    # max|F_i/x_i| > POST_SS_PERCAP_TOL when they get there.  A re-seeded species
+    # starts at seed_floor >= 10 * ZERO_ABUNDANCE, above the callback's
+    # u_thresh, so its per-capita rate -- the invasion growth rate, O(1) -- keeps
+    # the condition false while it is still deciding; termination cannot
+    # front-run an invader.  ReturnCode.Terminated is a successful retcode, so
+    # the classification below is untouched, and `ode_retcode` separates
+    # converged ("Terminated") from hit-the-horizon ("Success") at no schema
+    # cost.  Stage 3's SECOND extended pass is deliberately not copied: this
+    # labels the non-converged rows, it does not repair them.
+    ss_cb  = make_percap_terminate_cb(POST_SS_PERCAP_TOL, ZERO_ABUNDANCE)
+    cbs    = CallbackSet(ext_cb, ss_cb)
 
     # FullSpecialize, not the AutoSpecialize default: `f!` has one concrete type
     # for every ray of every model, so specialising costs one compilation for
@@ -664,7 +680,7 @@ function integrate_and_classify_return(A_eff::Matrix{Float64},
     # it computes.
     prob = ODEProblem{true, SciMLBase.FullSpecialize}(f!, x_seed, dyn["tspan"])
     sol = DifferentialEquations.solve(prob, Tsit5(); reltol=dyn["reltol"], abstol=dyn["abstol"],
-                                      callback=ext_cb,
+                                      callback=cbs,
                                       save_everystep=false, save_start=false)
 
     ode_retcode = string(sol.retcode)
