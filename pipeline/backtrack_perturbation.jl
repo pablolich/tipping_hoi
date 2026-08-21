@@ -750,15 +750,19 @@ function default_result_row(row_idx::Int,
         # bounded post-boundary state.  This is the POST_RECORD_RETCODE lesson
         # from stage 3, applied before rather than after.
         #
-        # support_renorm: s = ||u_full[active_idx]||, the factor by which the
-        # perturbation direction is renormalised when it is restricted to the
-        # collapsed state's support.  delta_event is measured along the
-        # RENORMALISED direction while delta_c is measured along the full-space
-        # one, so the two are not on the same axis and any hysteresis width that
-        # compares them is biased by s.  Measured on this tree: median s = 0.835,
-        # p05 0.206, and 88.3% of rays below 0.99 -- not a rounding effect.
-        # Recoverable in principle from x_postboundary_snap and U, but only by
-        # re-deriving the support with the same tolerance the driver used.
+        # support_renorm: s = ||u_full[active_idx]||, the fraction of the
+        # perturbation direction that lands on the collapsed state's support.
+        # DIAGNOSTIC ONLY.  It used to be APPLIED -- u_act was divided by s
+        # before p_start was formed -- which put the survivors' half of the event
+        # search on a different physical axis from the invasion half and, worse,
+        # seeded the tracker with a point that was not an equilibrium of the
+        # system it tracks.  That is fixed where p_start is built in
+        # process_direction_row: delta_event and delta_c are on the same axis and
+        # no s-correction is owed downstream.  Kept because it is what says how
+        # much of a ray a given collapsed support can even feel -- on this tree
+        # median s = 0.835, p05 0.206, 88.3% of rays below 0.99 -- and because it
+        # is recoverable from x_postboundary_snap and U only by re-deriving the
+        # support with the same tolerance the driver used.
         #
         # x_end_dist_rel: ||x_end - x_preboundary|| / ||x_preboundary|| for the
         # return ODE.  `returned_n` is a RICHNESS test -- it fires when all n
@@ -883,15 +887,34 @@ function process_direction_row(row::Dict{String,Any},
         ))
     end
 
-    # Restrict the direction and the state to the active subsystem.  These two
-    # lines are `restrict_params`' own u2/x2, verbatim; the (A, B, r0) slices it
-    # also computes are needed only when the workspace has to be built, so they
-    # now happen inside get_or_build_workspace! on a cache miss.
+    # Restrict the direction and the state to the active subsystem.  x_act is
+    # `restrict_params`' own x2 verbatim, u_act its u2 under normalize_u=false;
+    # the (A, B, r0) slices it also computes are needed only when the workspace
+    # has to be built, so they now happen inside get_or_build_workspace! on a
+    # cache miss.
+    #
+    # u_act is NOT renormalised, and that is the whole point.  `build_system`
+    # (utils/glvhoi_utils.jl) takes its parameter as an ABSOLUTE growth-rate
+    # offset -- F_i = (r0_i + dr_i) + (A_eff x)_i + (B_eff x x)_i -- so dr has no
+    # free scale: dividing u by s selects a DIFFERENT physical perturbation, it
+    # does not restate the same one on another axis.  Stage 3 produced x_post at
+    # r_eff = r0 + delta_post*u_full, so on this support x_act is an equilibrium
+    # at delta_post .* u_full[active_idx] and at nothing else.  Dividing by s
+    # handed `find_event` a start point whose residual is delta_post*(1 - s)
+    # (2.1e-01 against 5.0e-09 at the median on the n4_b1_2 fixture), which HC
+    # either rejects outright -- terminated_invalid_startvalue, surfacing as a
+    # phantom :tracker_failure at t == 1 on 10.6% of the rows of that fixture --
+    # or corrects onto the branch belonging to delta_post/s, while `invasion_fn`
+    # below goes on probing the absent species at real(t)*delta_post.  Both
+    # halves of the event search now sit on the one physical axis, which is also
+    # the axis delta_c was measured on.  See
+    # review-1_responses/scratch/backtrack_scale_fix/diagnosis_A_scale_mixing.md.
     u_act = u_full[active_idx]
-    # Kept, not discarded: this is the axis change between delta_event and
-    # delta_c.  See the note in default_result_row.
+    # Still computed and still reported, never applied: how much of the
+    # perturbation direction lands on the surviving support.  `delta_from_dr` is
+    # dot(dr, u)/dot(u, u), exactly scale-invariant in u, so delta_event comes
+    # out as t_end * delta_post either way.
     support_renorm = norm(u_act)
-    support_renorm > 0 && (u_act ./= support_renorm)
     x_act = x_post[active_idx]
 
     # Parameters are always n_active-dimensional (no alpha slot)
