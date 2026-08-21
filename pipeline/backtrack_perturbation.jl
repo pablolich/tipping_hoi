@@ -81,6 +81,83 @@ function build_backtrack_cfg()
     )
 end
 
+# ─── One tracker type per session, not one per (alpha block, active support) ──
+#
+# HomotopyContinuation compiles a straight-line program per System and carries a
+# hash of that program — which includes the system's numeric COEFFICIENTS — in
+# the TYPE PARAMETER of `CompiledSystem{HI}`
+# (HomotopyContinuation/src/model_kit/compiled_system_homotopy.jl).  Because
+# `build_system` bakes A_eff/B_eff/r0 in as literals, every (alpha block, active
+# support) pair is a different `HI`, hence a different
+# `Tracker{ParameterHomotopy{MixedSystem{HI}}}`, and Julia recompiles the whole
+# tracker stack for it — `step!`, the predictor, the Newton corrector, and this
+# file's own `find_event` / `find_zero` / `find_stability` / `find_invasion` /
+# `track_to_preboundary` / `lambda_max_equilibrium_hc!`, every one of which is
+# reached through `ws::BacktrackWorkspace{TTracker,TCompiled}`.
+#
+# Measured on one n=4 model of the submitted bank: 59 distinct systems over the
+# 11 alpha blocks, and running an alpha block a SECOND time costs 6-13% of the
+# first pass.  The other 87-94% was code generation, not arithmetic.
+#
+# `ErasedSystem` holds the system behind an ABSTRACT field, so the tracker sees
+# exactly one type however many systems it is handed.  Every method below
+# forwards to the very same object `fixed(syst)` returns — the `MixedSystem`
+# `ParameterHomotopy` used to build internally, whose `evaluate!` and
+# `evaluate_and_jacobian!` are the compiled straight-line code and whose
+# `taylor!` is the interpreter.  Every arithmetic operation still happens, in
+# the same order, on the same types; only dispatch changes, at a cost of
+# nanoseconds per evaluation.
+#
+# Keep the forwarders UNTYPED in x and p.  `TrackerOptions` defaults
+# `extended_precision = true`, so the Newton corrector calls `evaluate!` with a
+# `Vector{ComplexDF64}`; an `::AbstractVector{ComplexF64}` annotation would
+# silently divert it.
+#
+# ─── Why not simply stop compiling ───────────────────────────────────────────
+#
+# Type erasure removes the codegen caused by the TRACKER type, which is a fixed
+# ~0.4 s per system.  It cannot remove the codegen for the straight-line body
+# itself: that is `@generated` per `HI`, its size is O(n^3) in the support, and
+# at n = 16 it dominates (this change is 1.36x at n=4, 1.32x at n=10, 1.02x at
+# n=16).  `fixed(syst; compile = :none)` would remove it — `InterpretedSystem`
+# has one type for all coefficients — and is ~5x faster at n = 16.
+#
+# It is also NOT the same computation, which is why it is not done here.  The
+# compiled body is lowered from a system whose variables have been renamed to
+# _x_1.._x_n, the interpreter's from the original system, and SymEngine orders
+# the terms of a sum by symbol hash — so the two associate the same sums
+# differently and disagree by up to 1 ulp per evaluation.  A 1-ulp Jacobian
+# moves the tracker's step sequence, and the step sequence decides which event
+# it meets first.  Run end to end against the submitted bank:
+#
+#   n=4   93 of 256 rows moved delta_event, by ≤ 3.4e-10 relative
+#   n=10  64 of 128 rows moved delta_event, by ≤ 1.2e-9 relative
+#   n=16  73 of 128 rows moved, and ONE row changed hc_event
+#         invasion → tracker_failure, class_label returned_n →
+#         boundary_persist, n_alive_ode 16 → 15
+#
+# So: erase the TYPE, keep the compiled CODE.
+struct ErasedSystem <: HomotopyContinuation.AbstractSystem
+    F::HomotopyContinuation.AbstractSystem
+end
+
+Base.size(F::ErasedSystem) = size(F.F)
+Base.show(io::IO, F::ErasedSystem) = (print(io, "Erased: "); show(io, F.F))
+HomotopyContinuation.ModelKit.variables(F::ErasedSystem) =
+    HomotopyContinuation.ModelKit.variables(F.F)
+HomotopyContinuation.ModelKit.parameters(F::ErasedSystem) =
+    HomotopyContinuation.ModelKit.parameters(F.F)
+HomotopyContinuation.ModelKit.variable_groups(F::ErasedSystem) =
+    HomotopyContinuation.ModelKit.variable_groups(F.F)
+HomotopyContinuation.ModelKit.evaluate!(u, F::ErasedSystem, x, p = nothing) =
+    HomotopyContinuation.ModelKit.evaluate!(u, F.F, x, p)
+HomotopyContinuation.ModelKit.evaluate_and_jacobian!(u, U, F::ErasedSystem, x, p = nothing) =
+    HomotopyContinuation.ModelKit.evaluate_and_jacobian!(u, U, F.F, x, p)
+HomotopyContinuation.ModelKit.jacobian!(U, F::ErasedSystem, x, p = nothing) =
+    HomotopyContinuation.ModelKit.jacobian!(U, F.F, x, p)
+HomotopyContinuation.ModelKit.taylor!(u, v::Val, F::ErasedSystem, tx, p = nothing) =
+    HomotopyContinuation.ModelKit.taylor!(u, v, F.F, tx, p)
+
 mutable struct BacktrackWorkspace{TTracker,TCompiled}
     tracker::TTracker
     compiled_system::TCompiled
@@ -96,9 +173,16 @@ end
 function BacktrackWorkspace(syst::System, n_state::Int, n_params::Int)
     p_start  = zeros(Float64, n_params)
     p_target = zeros(Float64, n_params)
-    H = ParameterHomotopy(syst, p_start, p_target)
+    # `fixed` is what `ParameterHomotopy(::System, ...)` calls internally, so
+    # this is the same MixedSystem as before — built once and used both by the
+    # tracker and by the eigenvalue evaluation, instead of building a separate
+    # CompiledSystem for the latter.  Both wear the ErasedSystem jacket so the
+    # tracker type and this workspace's type no longer depend on the
+    # coefficients.  See the comment above ErasedSystem.
+    F = ErasedSystem(fixed(syst))
+    H = ParameterHomotopy(F, p_start, p_target)
     tracker = Tracker(H; options=TrackerOptions(max_steps=MAX_STEPS_PT))
-    compiled_system = CompiledSystem(syst)
+    compiled_system = F
     return BacktrackWorkspace(
         tracker,
         compiled_system,
@@ -112,23 +196,32 @@ function BacktrackWorkspace(syst::System, n_state::Int, n_params::Int)
     )
 end
 
-# Per-alpha-block cache keyed by the sorted active-support indices.  Active-support
+# Per-alpha-block cache keyed by the active-support indices.  Active-support
 # restriction fully determines (r0_act, A_act_eff, B_act_eff) within one alpha block,
 # so one workspace per support can be reused across all direction rows that share it.
+# The key needs no sorting: `support_indices` is `findall(x .> tol)`, which is
+# already ascending, so the `sort` this used to do was the identity.
 const BacktrackCache = Dict{Vector{Int}, BacktrackWorkspace}
 
+# Takes the FULL (r0, A_eff, B_eff) and restricts them itself, because the
+# restriction is only needed on a cache miss.  The caller used to slice
+# A[idx,idx] and B[idx,idx,idx] for every row and then throw them away on the
+# ~90% of rows that hit the cache; B alone is n_active^3 Float64s per row.
+# `restrict_params` is still the one doing the slicing, so the coefficients
+# handed to `build_system` are the same numbers as before.
 function get_or_build_workspace!(cache::BacktrackCache,
                                   active_idx::Vector{Int},
-                                  r0_act::AbstractVector{<:Real},
-                                  A_act_eff::AbstractMatrix{<:Real},
-                                  B_act_eff::Array{<:Real,3})
-    key = sort(active_idx)
-    ws = get(cache, key, nothing)
+                                  r0::AbstractVector{<:Real},
+                                  A_eff::AbstractMatrix{<:Real},
+                                  B_eff::Array{<:Real,3},
+                                  u_full::AbstractVector{<:Real})
+    ws = get(cache, active_idx, nothing)
     if ws === nothing
         n_active = length(active_idx)
+        A_act_eff, B_act_eff, r0_act, _ = restrict_params(A_eff, B_eff, r0, u_full, active_idx)
         syst, _ = build_system(r0_act, A_act_eff, B_act_eff)
         ws = BacktrackWorkspace(syst, n_active, n_active)
-        cache[key] = ws
+        cache[copy(active_idx)] = ws
     end
     return ws
 end
@@ -178,11 +271,56 @@ function invasion_max_at_state(r0_full::AbstractVector{<:Real},
                                delta::Real)
     isempty(inactive_idx) && return -Inf
     n = length(r0_full)
-    x_full = zeros(Float64, n)
-    x_full[active_idx] .= x_active
-    r_eff = r0_full .+ delta .* u_full
-    growth = per_capita_growth(A_full_eff, B_full_eff, r_eff, x_full)
-    return maximum(growth[inactive_idx])
+    return invasion_max_at_state!(InvasionScratch(n), r0_full, A_full_eff, B_full_eff,
+                                  u_full, x_active, active_idx, inactive_idx, delta)
+end
+
+# Scratch space for the invasibility test.  The test runs once per accepted
+# tracker step and again at every refinement step inside find_invasion, and it
+# used to allocate six n-vectors per call (x_full, r_eff, and per_capita_growth's
+# own fx/lin/tmp, plus the `growth[inactive_idx]` copy).  Reusing buffers is the
+# whole change: the arithmetic below is `per_capita_growth`
+# (utils/math_utils.jl) operation for operation, in the same order.
+struct InvasionScratch
+    x_full::Vector{Float64}
+    r_eff::Vector{Float64}
+    fx::Vector{Float64}
+    lin::Vector{Float64}
+    tmp::Vector{Float64}
+end
+InvasionScratch(n::Int) = InvasionScratch(zeros(n), zeros(n), zeros(n), zeros(n), zeros(n))
+
+function invasion_max_at_state!(sc::InvasionScratch,
+                                r0_full::AbstractVector{<:Real},
+                                A_full_eff::AbstractMatrix{<:Real},
+                                B_full_eff::Array{<:Real,3},
+                                u_full::AbstractVector{<:Real},
+                                x_active::AbstractVector{<:Real},
+                                active_idx::Vector{Int},
+                                inactive_idx::Vector{Int},
+                                delta::Real)
+    isempty(inactive_idx) && return -Inf
+    n = length(r0_full)
+    x_full, r_eff = sc.x_full, sc.r_eff
+    fill!(x_full, 0.0)
+    @inbounds x_full[active_idx] .= x_active
+    @inbounds for i in 1:n
+        r_eff[i] = r0_full[i] + delta * u_full[i]
+    end
+
+    # per_capita_growth(A_full_eff, B_full_eff, r_eff, x_full), into sc.fx.
+    fx, lin, tmp = sc.fx, sc.lin, sc.tmp
+    mul!(lin, A_full_eff, x_full)
+    @inbounds @views for i in 1:n
+        Bi = B_full_eff[:, :, i]
+        mul!(tmp, Bi, x_full)
+        quad = dot(x_full, tmp)
+        fx[i] = r_eff[i] + lin[i] + quad
+    end
+
+    # `maximum` over a view, not over a fresh `fx[inactive_idx]` copy: same
+    # function, so NaN and signed-zero behave identically, one less allocation.
+    return maximum(view(fx, inactive_idx))
 end
 
 function build_ode_seed(x_good_full::AbstractVector{<:Real},
@@ -222,20 +360,66 @@ function reversal_frac(delta_post::Real, delta_return::Real)
 end
 
 
-function integrate_and_classify_return(A_eff::AbstractMatrix{<:Real},
+# Everything a row needs that depends only on the alpha block, built once per
+# block instead of once per ray.  `Bi_list` is what `make_unified_rhs`
+# (utils/glvhoi_utils.jl) materialises internally on every call — n dense n×n
+# copies out of B_eff — and B_eff does not change within a block.
+struct AlphaBlockScratch
+    Bi_list::Vector{Matrix{Float64}}
+    rhs_tmp::Vector{Float64}
+    invasion::InvasionScratch
+end
+
+function AlphaBlockScratch(B_eff::Array{<:Real,3})
+    n = size(B_eff, 3)
+    return AlphaBlockScratch(
+        [Matrix{Float64}(B_eff[:, :, i]) for i in 1:n],   # as make_unified_rhs builds it
+        Vector{Float64}(undef, n),
+        InvasionScratch(n),
+    )
+end
+
+# `make_unified_rhs` (utils/glvhoi_utils.jl) with the invariant parts passed in.
+# Argument types are concrete so the closure has ONE type across every ray,
+# which is what lets the ODE solver below be fully specialised once.
+function unified_rhs_from_slices(A_eff::Matrix{Float64},
+                                 Bi_list::Vector{Matrix{Float64}},
+                                 r_eff::Vector{Float64},
+                                 tmp::Vector{Float64})
+    n = length(r_eff)
+    function f!(dx, x, p, t)
+        mul!(dx, A_eff, x)
+        @inbounds for i in 1:n
+            mul!(tmp, Bi_list[i], x)
+            quad_i = dot(x, tmp)
+            dx[i] = x[i] * (r_eff[i] + dx[i] + quad_i)
+        end
+        return nothing
+    end
+    return f!
+end
+
+function integrate_and_classify_return(A_eff::Matrix{Float64},
                                        B_eff::Array{<:Real,3},
                                        r0::AbstractVector{<:Real},
                                        u_full::AbstractVector{<:Real},
                                        delta_probe::Real,
-                                       x_seed::AbstractVector{<:Real},
+                                       x_seed::Vector{Float64},
                                        n_full::Int,
                                        dyn::Dict{String,Any},
-                                       back::Dict{String,Any})
-    r_eff = r0 .+ delta_probe .* u_full
-    f! = make_unified_rhs(A_eff, B_eff, r_eff)
+                                       back::Dict{String,Any},
+                                       scratch::AlphaBlockScratch=AlphaBlockScratch(B_eff))
+    r_eff = Vector{Float64}(r0 .+ delta_probe .* u_full)
+    f! = unified_rhs_from_slices(A_eff, scratch.Bi_list, r_eff, scratch.rhs_tmp)
     ext_cb = make_extinction_cb(dyn["eps_extinct"])
 
-    prob = ODEProblem(f!, x_seed, dyn["tspan"])
+    # FullSpecialize, not the AutoSpecialize default: `f!` has one concrete type
+    # for every ray of every model, so specialising costs one compilation for
+    # the whole run, while AutoSpecialize routes every single RHS evaluation
+    # through a FunctionWrappers ccall.  That wrapper was ~40% of the ODE's
+    # samples in the profile.  It changes how `f!` is *dispatched*, never what
+    # it computes.
+    prob = ODEProblem{true, SciMLBase.FullSpecialize}(f!, x_seed, dyn["tspan"])
     sol = DifferentialEquations.solve(prob, Tsit5(); reltol=dyn["reltol"], abstol=dyn["abstol"],
                                       callback=ext_cb,
                                       save_everystep=false, save_start=false)
@@ -348,7 +532,8 @@ function process_direction_row(row::Dict{String,Any},
                                U::Matrix{Float64},
                                dyn::Dict{String,Any},
                                back::Dict{String,Any},
-                               cache::BacktrackCache)
+                               cache::BacktrackCache,
+                               scratch::AlphaBlockScratch=AlphaBlockScratch(B_eff))
     n = length(r0)
     ray_id = try
         Int(row["ray_id"])
@@ -435,17 +620,25 @@ function process_direction_row(row::Dict{String,Any},
         ))
     end
 
-    # Restrict pre-scaled matrices to the active subsystem
-    A_act_eff, B_act_eff, r0_act, u_act, x_act = restrict_params(A_eff, B_eff, r0, u_full, active_idx, x_post)
+    # Restrict the direction and the state to the active subsystem.  These two
+    # lines are `restrict_params`' own u2/x2, verbatim; the (A, B, r0) slices it
+    # also computes are needed only when the workspace has to be built, so they
+    # now happen inside get_or_build_workspace! on a cache miss.
+    u_act = u_full[active_idx]
+    let nrm = norm(u_act)
+        nrm > 0 && (u_act ./= nrm)
+    end
+    x_act = x_post[active_idx]
 
     # Parameters are always n_active-dimensional (no alpha slot)
     p_start = delta_post .* collect(u_act)
     p_target = zeros(n_active)
 
-    ws = get_or_build_workspace!(cache, active_idx, r0_act, A_act_eff, B_act_eff)
+    ws = get_or_build_workspace!(cache, active_idx, r0, A_eff, B_eff, u_full)
 
+    invasion_sc = scratch.invasion
     invasion_fn = back["check_invasibility"] && !isempty(inactive_idx) ?
-        (x, t) -> invasion_max_at_state(r0, A_eff, B_eff, u_full, x, active_idx, inactive_idx, real(t) * delta_post) :
+        (x, t) -> invasion_max_at_state!(invasion_sc, r0, A_eff, B_eff, u_full, x, active_idx, inactive_idx, real(t) * delta_post) :
         nothing
 
     event, t_end, x_crit = find_event(p_start, p_target, x_act, ws, ZERO_ABUNDANCE;
@@ -494,7 +687,7 @@ function process_direction_row(row::Dict{String,Any},
     x_seed = build_ode_seed(x_good_full, inactive_idx; seed_floor=seed_floor)
 
     ode = integrate_and_classify_return(
-        A_eff, B_eff, r0, u_full, delta_probe, x_seed, n, dyn, back
+        A_eff, B_eff, r0, u_full, delta_probe, x_seed, n, dyn, back, scratch
     )
     delta_return = ode.returned_n ? delta_post : delta_probe
     kind = ode.returned_n ? "returned_n" : "probe_nonreturn"
@@ -546,8 +739,11 @@ function backtrack_model(model::Dict{String,Any},
         A_eff, B_eff = prescale(A, B, alpha, is_gibbs)
 
         cache = BacktrackCache()
+        # Depends on B_eff only, so it is built once per block rather than once
+        # per ray.  See AlphaBlockScratch.
+        scratch = AlphaBlockScratch(B_eff)
 
-        out_rows = Vector{Any}()
+        out_rows = Vector{Any}(undef, length(dir_rows))
         for (row_idx, row_any) in enumerate(dir_rows)
             row = row_any isa Dict{String,Any} ? row_any : to_dict(row_any)
             ray_id = try
@@ -557,7 +753,7 @@ function backtrack_model(model::Dict{String,Any},
             end
 
             row_out = try
-                process_direction_row(row, row_idx, alpha, a_idx, r0, A_eff, B_eff, U, dyn, back, cache)
+                process_direction_row(row, row_idx, alpha, a_idx, r0, A_eff, B_eff, U, dyn, back, cache, scratch)
             catch err
                 # A cached tracker may be mid-step after the exception — evict so the
                 # next row with this support rebuilds from scratch.
@@ -575,7 +771,7 @@ function backtrack_model(model::Dict{String,Any},
                     "ode_ran" => false,
                 ))
             end
-            push!(out_rows, row_out)
+            out_rows[row_idx] = row_out
         end
 
         push!(alpha_results, Dict(
