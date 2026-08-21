@@ -14,6 +14,7 @@ using JSON3
 using HomotopyContinuation
 using DifferentialEquations
 using SciMLBase
+using SHA
 
 include(joinpath(@__DIR__, "..", "pipeline_config.jl"))
 include(joinpath(@__DIR__, "..", "utils", "model_store_utils.jl"))
@@ -22,29 +23,93 @@ include(joinpath(@__DIR__, "..", "utils", "json_utils.jl"))
 include(joinpath(@__DIR__, "..", "utils", "hc_param_utils.jl"))
 include(joinpath(@__DIR__, "..", "utils", "glvhoi_utils.jl"))
 include(joinpath(@__DIR__, "..", "utils", "dynamics_cfg_utils.jl"))
+include(joinpath(@__DIR__, "..", "utils", "provenance_utils.jl"))
+# A3: the single shared implementation of the community-matrix eigenvalues.
+if !@isdefined(lambda_max_equilibrium_core!)
+    include(joinpath(@__DIR__, "..", "utils", "hc_lambda_utils.jl"))
+end
 include(joinpath(@__DIR__, "..", "utils", "boundary_event_utils.jl"))
+
+# Every source file whose contents can change what this driver writes: its own
+# include closure, followed transitively — glvhoi_utils.jl pulls the six
+# eco-model files and dynamics_mode_utils.jl, and ode_snap_utils.jl is included
+# further down this file rather than in the header block.  Those six eco-model
+# files are listed even though stage 4 never calls into them: they are part of
+# what loaded, and over-inclusion is the safe direction for a fingerprint.
+# Under-inclusion is the failure that matters, because code_fingerprint hashes a
+# MISSING path as empty rather than throwing — a partial rsync to a cluster does
+# not error, it silently changes code_sha.
+#
+# Mirrors POST_SOURCE_FILES in pipeline/post_boundary_dynamics.jl and
+# SCAN_SOURCE_FILES in pipeline/boundary_scan.jl; keep the three in step.
+const BACK_SOURCE_FILES = [
+    "pipeline/backtrack_perturbation.jl",
+    "pipeline_config.jl",
+    "utils/model_store_utils.jl",
+    "utils/math_utils.jl",
+    "utils/json_utils.jl",
+    "utils/hc_param_utils.jl",
+    "utils/glvhoi_utils.jl",
+    "utils/dynamics_mode_utils.jl",
+    "utils/dynamics_cfg_utils.jl",
+    "utils/hc_lambda_utils.jl",
+    "utils/boundary_event_utils.jl",
+    "utils/ode_snap_utils.jl",
+    "utils/provenance_utils.jl",
+    "other_models/lever_model.jl",
+    "other_models/karatayev_model.jl",
+    "other_models/aguade_model.jl",
+    "other_models/mougi_model.jl",
+    "other_models/stouffer_model.jl",
+    "other_models/atn_model.jl",
+]
 
 function usage_error()
     msg = """
     Usage:
-      julia --startup-file=no pipeline/backtrack_perturbation.jl <run_dir> [--model-file FILE]
+      julia --startup-file=no pipeline/backtrack_perturbation.jl <run_dir> [options]
 
     Required:
-      <run_dir>          Folder inside model_runs/
+      <run_dir>          Folder inside model_runs/ (searched recursively)
 
     Options:
-      --model-file FILE  Process one model JSON file from <run_dir>
+      --model-file FILE       Process one model JSON file from <run_dir>
+      --file-list FILE        Process exactly the paths named in FILE, one per line
+      --shard K/N             Process shard K of N over the sorted file list
+      --force                 Recompute files that already have backtrack_results
+      --max-model-seconds V   Per-model wall-clock cap, checked before each ray
 
     All backtrack settings are in pipeline_config.jl.
     """
     error(msg)
 end
 
+"""
+    parse_shard(spec) -> (k, n)
+
+`"K/N"` with `1 <= K <= N`.  Deliberately 1-based on both halves so a SLURM
+array index drops straight in: `--shard \$SLURM_ARRAY_TASK_ID/\$N`.
+"""
+function parse_shard(spec::AbstractString)
+    parts = split(spec, '/')
+    length(parts) == 2 || error("--shard expects K/N, got $spec.")
+    k = tryparse(Int, strip(parts[1]))
+    n = tryparse(Int, strip(parts[2]))
+    (k === nothing || n === nothing) && error("--shard expects integers, got $spec.")
+    n >= 1 || error("--shard N must be >= 1, got $n.")
+    1 <= k <= n || error("--shard K must be in 1:$n, got $k.")
+    return (k, n)
+end
+
 function parse_args(args::Vector{String})
     isempty(args) && usage_error()
 
-    run_dir    = ""
-    model_file = nothing
+    run_dir           = ""
+    model_file        = nothing
+    file_list         = nothing
+    shard             = nothing
+    force             = false
+    max_model_seconds = nothing
 
     i = 1
     while i <= length(args)
@@ -52,6 +117,18 @@ function parse_args(args::Vector{String})
         if arg == "--model-file" && i < length(args)
             model_file = args[i + 1]
             i += 2
+        elseif arg == "--file-list" && i < length(args)
+            file_list = args[i + 1]
+            i += 2
+        elseif arg == "--shard" && i < length(args)
+            shard = parse_shard(args[i + 1])
+            i += 2
+        elseif arg == "--max-model-seconds" && i < length(args)
+            max_model_seconds = parse(Float64, args[i + 1])
+            i += 2
+        elseif arg == "--force"
+            force = true
+            i += 1
         elseif startswith(arg, "--")
             error("Unknown flag: $arg. Configure backtrack settings in pipeline_config.jl.")
         elseif run_dir == ""
@@ -63,8 +140,116 @@ function parse_args(args::Vector{String})
     end
 
     run_dir == "" && usage_error()
-    return (run_dir=run_dir, model_file=model_file)
+    if count(!isnothing, (model_file, file_list, shard)) > 1
+        error("--model-file, --file-list and --shard are mutually exclusive.")
+    end
+    if !isnothing(max_model_seconds) && !(max_model_seconds > 0)
+        error("--max-model-seconds must be positive, got $max_model_seconds.")
+    end
+    return (run_dir=run_dir, model_file=model_file, file_list=file_list,
+            shard=shard, force=force, max_model_seconds=max_model_seconds)
 end
+
+"""
+    read_file_list(path, root) -> Vector{String}
+
+One model path per line; blank lines and `#` comments ignored.  A relative line
+is taken against `root`, so a list is portable between a laptop checkout and a
+cluster staging of the same tree.
+
+This exists because `--shard` cannot balance what it cannot see.  Stage 4's cost
+is dominated by HomotopyContinuation codegen, which is superlinear in the ACTIVE
+SUPPORT size, and the support is a property of the post-collapse state — so cost
+per model spans orders of magnitude across the n range and round-robin striding
+leaves the array waiting on whichever task drew the most n = 20 models.  A
+pre-computed list lets the task partition be cost-packed offline, where the
+measured per-cell costs are available, instead of guessed by the driver.
+
+Every named path must exist: a typo in a generated task list must fail the task
+loudly, not silently shrink its workload to the paths that happened to resolve.
+"""
+function read_file_list(path::AbstractString, root::AbstractString)
+    isfile(path) || error("--file-list not found: $path")
+    out = String[]
+    for (lineno, raw) in enumerate(eachline(path))
+        line = strip(raw)
+        (isempty(line) || startswith(line, "#")) && continue
+        p = isabspath(line) ? String(line) : joinpath(root, String(line))
+        isfile(p) || error("--file-list $path line $lineno: no such file: $p")
+        push!(out, p)
+    end
+    isempty(out) && error("--file-list $path named no files.")
+    return out
+end
+
+"""
+    shard_paths(paths, shard) -> Vector{String}
+
+Round-robin, not contiguous blocks.  `resolve_model_paths` sorts, so a
+contiguous block is one (tier, b, n) cell and cost per cell spans the whole n
+range — the scan measured 0.077 s/ray at n = 4 against 3.17 s/ray at n = 20.
+Striding by N gives every task the same mix of cheap and expensive models, so
+the array finishes when the average task does rather than when the n = 20 block
+does.  `mod(i - 1, n) == k - 1` over `1:length(paths)` partitions the list
+exactly: every index lands in one shard, none in two, and the last shard is
+short by at most one rather than off the end.
+"""
+function shard_paths(paths::Vector{String}, shard::Tuple{Int,Int})
+    k, n = shard
+    return [p for (i, p) in enumerate(paths) if mod(i - 1, n) == k - 1]
+end
+
+"""
+    already_backtracked(raw, code_sha) -> Bool
+
+True when this payload was backtracked BY THE CODE THAT IS RUNNING NOW.
+
+A blind `haskey(model, "backtrack_results")` is a trap, and it is one this repo
+has already written down: `review-1_responses/scratch/backtrack_perf/REPORT.md`
+§3 records that 596 of the 900 files in
+`2_bank_standard_50_models_n_4-20_128_dirs_muB_0.0` carry `backtrack_results`
+written BEFORE the A1/A2/A3 performance fixes and stamped with no provenance at
+all, so a `haskey` guard cannot tell "done by current code" from "done by code
+that no longer exists" and would silently produce a bank that is half one and
+half the other.  Matching on `code_sha` is what makes the skip a statement about
+the result rather than about the field being present.  Mirrors
+`already_scanned` in pipeline/boundary_scan.jl.
+
+Takes the LAZY `JSON3.Object`, not a converted `Dict`: `to_dict` on one of these
+models costs ~1.8 s (REPORT.md §3), and on a requeued shard almost every file is
+about to be skipped.  Paying deep conversion to decide not to use the result is
+the whole cost of a resume.
+
+Provenance-free payloads answer `false` and are recomputed, which is the
+conservative direction: the only way to be sure what wrote them is to write them
+again.
+"""
+function already_backtracked(raw, code_sha::AbstractString)
+    haskey(raw, :backtrack_results) || return false
+    prov = get(raw, :backtrack_provenance, nothing)
+    prov === nothing && return false
+    return String(get(prov, :code_sha, "")) == code_sha
+end
+
+"""
+    ModelTimeout
+
+Raised by `backtrack_model` when the wall clock passes `--max-model-seconds`,
+checked before each ray.  Stage 4 has no natural runaway bound of its own: an HC
+tracker runs to `MAX_STEPS_PT = 1_000_000` steps and the return ODE integrates to
+`ODE_TSPAN_END = 10_000`, so a single pathological ray can outlive any walltime
+an array asks for.  Raising rather than truncating is deliberate — a model that
+hits the cap is left UNWRITTEN and reported, because a partially backtracked
+payload that looks complete is worse than a missing one.
+"""
+struct ModelTimeout <: Exception
+    file::String
+    elapsed::Float64
+    cap::Float64
+end
+Base.showerror(io::IO, e::ModelTimeout) = print(io,
+    "ModelTimeout: $(e.file) exceeded --max-model-seconds " *
+    "($(round(e.elapsed, digits=1)) s > $(e.cap) s)")
 
 function build_backtrack_cfg()
     return Dict{String,Any}(
@@ -79,6 +264,57 @@ function build_backtrack_cfg()
         "return_dist_abs"    => 1e-3,
         "return_dist_rel"    => 1e-3,
     )
+end
+
+"""
+    run_metadata(force, shard, max_model_seconds) -> (flags, provenance)
+
+The switches and the code identity behind one invocation, built once and stamped
+into every file the run writes.  Mirrors `run_metadata` in
+pipeline/post_boundary_dynamics.jl, added there for the same reason: a bank
+enriched under one setting was otherwise indistinguishable from a bank enriched
+under another, and `backtrack_config` recorded the tolerances and
+`selection.mode` and nothing about the run.
+
+`shard` and `file_list` are recorded as facts about the run, not as something
+that changes the answer — every ray is independent and no RNG is consulted anywhere in stage 4,
+so the partition a model was processed in cannot move a number.  It is here
+because a tree assembled from 400 array tasks should say so.
+"""
+function run_metadata(force::Bool,
+                      shard::Union{Nothing,Tuple{Int,Int}},
+                      file_list::Union{Nothing,String},
+                      max_model_seconds::Union{Nothing,Float64})
+    git = git_provenance()
+    # Only what leaves NO other trace.  post_delta_abs, invasion_tol and
+    # eps_seed_extinct are deliberately absent: backtrack_config.dynamics and
+    # backtrack_config.backtrack already record them verbatim a few lines below,
+    # and two copies of a value are two values that can disagree.
+    #
+    # blas_threads is here because it is a RESULT-AFFECTING fact that nothing
+    # else records.  Julia's OpenBLAS sizes its pool from the machine's core
+    # count, not the cgroup's, and this stage is HC path tracking: reduction
+    # order moves the Jacobian in the last bits, and a 1-ulp Jacobian moves the
+    # tracker's step sequence, which decides which event it meets first
+    # (backtrack_perf/REPORT.md §3 measured one row flipping hc_event outright).
+    flags = Dict{String,Any}(
+        "skip_done"         => BACK_SKIP_DONE,
+        "forced"            => force,
+        "shard"             => shard === nothing ? nothing : [shard[1], shard[2]],
+        "file_list"         => file_list,
+        "max_model_seconds" => max_model_seconds,
+        "max_steps_pt"      => MAX_STEPS_PT,
+        "julia_threads"     => Threads.nthreads(),
+        "blas_threads"      => LinearAlgebra.BLAS.get_num_threads(),
+    )
+    prov = Dict{String,Any}(
+        "git_sha"            => git.sha,
+        "git_dirty"          => git.dirty,
+        "code_sha"           => code_fingerprint(BACK_SOURCE_FILES),
+        "back_source_files"  => BACK_SOURCE_FILES,
+        "julia_version"      => string(VERSION),
+    )
+    return (flags=flags, provenance=prov)
 end
 
 # ─── One tracker type per session, not one per (alpha block, active support) ──
@@ -168,9 +404,16 @@ mutable struct BacktrackWorkspace{TTracker,TCompiled}
     x_eval::Vector{Float64}
     x_prev::Vector{Float64}
     x_curr::Vector{Float64}
+    # A3: see utils/hc_lambda_utils.jl.  Backtrack only ever builds GLV+HOI
+    # systems on an active support (build_system below), where G IS the
+    # per-capita rate and P == 1, so this is `nothing` and the eigenvalues are
+    # bit-identical to the pre-A3 code.  The field exists so the three
+    # workspaces present the same interface to the one shared implementation.
+    row_scale::Union{Nothing,Function}
 end
 
-function BacktrackWorkspace(syst::System, n_state::Int, n_params::Int)
+function BacktrackWorkspace(syst::System, n_state::Int, n_params::Int;
+                            row_scale::Union{Nothing,Function}=nothing)
     p_start  = zeros(Float64, n_params)
     p_target = zeros(Float64, n_params)
     # `fixed` is what `ParameterHomotopy(::System, ...)` calls internally, so
@@ -193,6 +436,7 @@ function BacktrackWorkspace(syst::System, n_state::Int, n_params::Int)
         Vector{Float64}(undef, n_state),
         Vector{Float64}(undef, n_state),
         Vector{Float64}(undef, n_state),
+        row_scale,
     )
 end
 
@@ -226,13 +470,12 @@ function get_or_build_workspace!(cache::BacktrackCache,
     return ws
 end
 
+# Thin forwarder to the one shared implementation (utils/hc_lambda_utils.jl).
 function lambda_max_equilibrium_hc!(ws::BacktrackWorkspace,
                                     x::AbstractVector{<:Real},
                                     p::AbstractVector{<:Real})
-    evaluate_and_jacobian!(ws.f_eval, ws.jac_f, ws.compiled_system, x, p)
-    mul!(ws.jac_comm, Diagonal(x), ws.jac_f)
-    e = eigvals!(ws.jac_comm)
-    return maximum(real, e)
+    return lambda_max_equilibrium_core!(ws.f_eval, ws.jac_f, ws.jac_comm,
+                                        ws.compiled_system, x, p, ws.row_scale)
 end
 
 function delta_from_dr(dr::AbstractVector{<:Real}, u::AbstractVector{<:Real})
@@ -412,6 +655,22 @@ function integrate_and_classify_return(A_eff::Matrix{Float64},
     r_eff = Vector{Float64}(r0 .+ delta_probe .* u_full)
     f! = unified_rhs_from_slices(A_eff, scratch.Bi_list, r_eff, scratch.rhs_tmp)
     ext_cb = make_extinction_cb(dyn["eps_extinct"])
+    # The same per-capita steady-state terminator stage 3 uses
+    # (utils/ode_snap_utils.jl), and for the same reason: without it `returned_n`
+    # below is not a statement about the dynamics but about ODE_TSPAN_END -- it
+    # counts whichever species happened to be above the floor at t = 10000, and
+    # on the n=4 and n=10 fixtures 43% and 45% of these solves are still at
+    # max|F_i/x_i| > POST_SS_PERCAP_TOL when they get there.  A re-seeded species
+    # starts at seed_floor >= 10 * ZERO_ABUNDANCE, above the callback's
+    # u_thresh, so its per-capita rate -- the invasion growth rate, O(1) -- keeps
+    # the condition false while it is still deciding; termination cannot
+    # front-run an invader.  ReturnCode.Terminated is a successful retcode, so
+    # the classification below is untouched, and `ode_retcode` separates
+    # converged ("Terminated") from hit-the-horizon ("Success") at no schema
+    # cost.  Stage 3's SECOND extended pass is deliberately not copied: this
+    # labels the non-converged rows, it does not repair them.
+    ss_cb  = make_percap_terminate_cb(POST_SS_PERCAP_TOL, ZERO_ABUNDANCE)
+    cbs    = CallbackSet(ext_cb, ss_cb)
 
     # FullSpecialize, not the AutoSpecialize default: `f!` has one concrete type
     # for every ray of every model, so specialising costs one compilation for
@@ -421,7 +680,7 @@ function integrate_and_classify_return(A_eff::Matrix{Float64},
     # it computes.
     prob = ODEProblem{true, SciMLBase.FullSpecialize}(f!, x_seed, dyn["tspan"])
     sol = DifferentialEquations.solve(prob, Tsit5(); reltol=dyn["reltol"], abstol=dyn["abstol"],
-                                      callback=ext_cb,
+                                      callback=cbs,
                                       save_everystep=false, save_start=false)
 
     ode_retcode = string(sol.retcode)
@@ -446,18 +705,6 @@ function integrate_and_classify_return(A_eff::Matrix{Float64},
 
     return (class=class, returned_n=returned_n, ode_retcode=ode_retcode,
             x_end=x_end, converged=true, n_alive=n_alive, snap_reason=:n_a)
-end
-
-function to_float_or_nan(x)
-    if x === nothing || ismissing(x)
-        return NaN
-    end
-    v = try
-        Float64(x)
-    catch
-        return NaN
-    end
-    return isfinite(v) ? v : NaN
 end
 
 function to_float_vector_or_nothing(x, n_expected::Int)
@@ -485,7 +732,7 @@ function default_result_row(row_idx::Int,
     δret = isfinite(delta_post) ? delta_post : (isfinite(delta_boundary) ? delta_boundary : 0.0)
     return Dict{String,Any}(
         "row_idx" => row_idx,
-        "alpha" => alpha,
+        "alpha" => json_number(alpha),
         "alpha_idx" => alpha_idx,
         "ray_id" => ray_id,
         "boundary_flag" => boundary_flag,
@@ -507,6 +754,41 @@ function default_result_row(row_idx::Int,
         "ode_ran" => false,
         "snap_reason" => "not_run",
         "n_alive_ode" => 0,
+        # ── three recordings that are free now and need a full re-run later ──
+        #
+        # post_snap_reason: stage 3's own verdict on this ray, carried forward.
+        # Without it, 35% of stage-4 rows (1,061,446 of 3,032,320 on
+        # parameterization_v2_unified_postdyn) carry ONE undifferentiated
+        # `missing_x_post`, merging three physically distinct causes -- the
+        # trajectory diverged in finite time (17.0% of rays), it never went
+        # extinct after two horizons (16.2%), and the scan found no boundary to
+        # step past (1.8%).  Only the first is a statement that the model has no
+        # bounded post-boundary state.  This is the POST_RECORD_RETCODE lesson
+        # from stage 3, applied before rather than after.
+        #
+        # support_renorm: s = ||u_full[active_idx]||, the fraction of the
+        # perturbation direction that lands on the collapsed state's support.
+        # DIAGNOSTIC ONLY.  It used to be APPLIED -- u_act was divided by s
+        # before p_start was formed -- which put the survivors' half of the event
+        # search on a different physical axis from the invasion half and, worse,
+        # seeded the tracker with a point that was not an equilibrium of the
+        # system it tracks.  That is fixed where p_start is built in
+        # process_direction_row: delta_event and delta_c are on the same axis and
+        # no s-correction is owed downstream.  Kept because it is what says how
+        # much of a ray a given collapsed support can even feel -- on this tree
+        # median s = 0.835, p05 0.206, 88.3% of rays below 0.99 -- and because it
+        # is recoverable from x_postboundary_snap and U only by re-deriving the
+        # support with the same tolerance the driver used.
+        #
+        # x_end_dist_rel: ||x_end - x_preboundary|| / ||x_preboundary|| for the
+        # return ODE.  `returned_n` is a RICHNESS test -- it fires when all n
+        # species are above the floor -- so a ray that lands on a DIFFERENT
+        # full-support attractor is scored identically to a genuine return.  One
+        # float settles it.  (This is what the vestigial `return_dist_abs` /
+        # `return_dist_rel` keys in build_backtrack_cfg describe and never use.)
+        "post_snap_reason" => "unknown",
+        "support_renorm" => nothing,
+        "x_end_dist_rel" => nothing,
     )
 end
 
@@ -549,6 +831,7 @@ function process_direction_row(row::Dict{String,Any},
         row_idx, alpha, alpha_idx, ray_id,
         boundary_flag, boundary_status, delta_boundary, delta_post,
     )
+    base["post_snap_reason"] = string(get(row, "snap_reason", "unknown"))
 
     u_full = compute_u_from_U(U, ray_id)
     if u_full === nothing
@@ -620,14 +903,34 @@ function process_direction_row(row::Dict{String,Any},
         ))
     end
 
-    # Restrict the direction and the state to the active subsystem.  These two
-    # lines are `restrict_params`' own u2/x2, verbatim; the (A, B, r0) slices it
-    # also computes are needed only when the workspace has to be built, so they
-    # now happen inside get_or_build_workspace! on a cache miss.
+    # Restrict the direction and the state to the active subsystem.  x_act is
+    # `restrict_params`' own x2 verbatim, u_act its u2 under normalize_u=false;
+    # the (A, B, r0) slices it also computes are needed only when the workspace
+    # has to be built, so they now happen inside get_or_build_workspace! on a
+    # cache miss.
+    #
+    # u_act is NOT renormalised, and that is the whole point.  `build_system`
+    # (utils/glvhoi_utils.jl) takes its parameter as an ABSOLUTE growth-rate
+    # offset -- F_i = (r0_i + dr_i) + (A_eff x)_i + (B_eff x x)_i -- so dr has no
+    # free scale: dividing u by s selects a DIFFERENT physical perturbation, it
+    # does not restate the same one on another axis.  Stage 3 produced x_post at
+    # r_eff = r0 + delta_post*u_full, so on this support x_act is an equilibrium
+    # at delta_post .* u_full[active_idx] and at nothing else.  Dividing by s
+    # handed `find_event` a start point whose residual is delta_post*(1 - s)
+    # (2.1e-01 against 5.0e-09 at the median on the n4_b1_2 fixture), which HC
+    # either rejects outright -- terminated_invalid_startvalue, surfacing as a
+    # phantom :tracker_failure at t == 1 on 10.6% of the rows of that fixture --
+    # or corrects onto the branch belonging to delta_post/s, while `invasion_fn`
+    # below goes on probing the absent species at real(t)*delta_post.  Both
+    # halves of the event search now sit on the one physical axis, which is also
+    # the axis delta_c was measured on.  See
+    # review-1_responses/scratch/backtrack_scale_fix/diagnosis_A_scale_mixing.md.
     u_act = u_full[active_idx]
-    let nrm = norm(u_act)
-        nrm > 0 && (u_act ./= nrm)
-    end
+    # Still computed and still reported, never applied: how much of the
+    # perturbation direction lands on the surviving support.  `delta_from_dr` is
+    # dot(dr, u)/dot(u, u), exactly scale-invariant in u, so delta_event comes
+    # out as t_end * delta_post either way.
+    support_renorm = norm(u_act)
     x_act = x_post[active_idx]
 
     # Parameters are always n_active-dimensional (no alpha slot)
@@ -674,6 +977,7 @@ function process_direction_row(row::Dict{String,Any},
             "ode_ran" => false,
             "snap_reason" => "not_run",
             "n_alive_ode" => 0,
+            "support_renorm" => support_renorm,
         ))
     end
 
@@ -689,6 +993,10 @@ function process_direction_row(row::Dict{String,Any},
     ode = integrate_and_classify_return(
         A_eff, B_eff, r0, u_full, delta_probe, x_seed, n, dyn, back, scratch
     )
+    # x_good_full is the pre-boundary equilibrium the return is measured against.
+    x_end_dist_rel = let d = norm(x_good_full)
+        (ode.converged && d > 0) ? norm(ode.x_end .- x_good_full) / d : nothing
+    end
     delta_return = ode.returned_n ? delta_post : delta_probe
     kind = ode.returned_n ? "returned_n" : "probe_nonreturn"
 
@@ -708,12 +1016,19 @@ function process_direction_row(row::Dict{String,Any},
         "ode_ran" => true,
         "snap_reason" => String(ode.snap_reason),
         "n_alive_ode" => Int(ode.n_alive),
+        "support_renorm" => support_renorm,
+        "x_end_dist_rel" => x_end_dist_rel,
     ))
 end
 
 function backtrack_model(model::Dict{String,Any},
                          dyn::Dict{String,Any},
-                         back::Dict{String,Any})
+                         back::Dict{String,Any};
+                         meta=nothing,
+                         source_path::AbstractString="",
+                         model_name::AbstractString="",
+                         max_model_seconds::Union{Nothing,Float64}=nothing)
+    t_model_start = time()
     n = Int(model["n"])
     dmode = get(model, "dynamics_mode", "standard")
     A = nested_to_matrix(model["A"])
@@ -725,18 +1040,18 @@ function backtrack_model(model::Dict{String,Any},
     size(B, 1) == n && size(B, 2) == n && size(B, 3) == n || error("B has wrong shape: $(size(B)) for n=$n.")
     size(U, 1) == n || error("U has wrong row count: $(size(U, 1)) for n=$n.")
 
-    is_gibbs = dmode == "gibbs"
+    negate_ab = negated_ab(dmode)
     post_results = get(model, "post_dynamics_results", Any[])
     isempty(post_results) && error("Missing or empty post_dynamics_results in input model.")
 
     alpha_results = Vector{Any}()
     for alpha_block in post_results
         a_idx = Int(alpha_block["alpha_idx"])
-        alpha = Float64(alpha_block["alpha"])
+        alpha = to_float_or_nan(alpha_block["alpha"])
         dir_rows = get(alpha_block, "directions", Any[])
 
         r0 = dmode == "unique_equilibrium" ? compute_r_unique_equilibrium(A, B, alpha) : r0_fixed
-        A_eff, B_eff = prescale(A, B, alpha, is_gibbs)
+        A_eff, B_eff = prescale(A, B, alpha, negate_ab)
 
         cache = BacktrackCache()
         # Depends on B_eff only, so it is built once per block rather than once
@@ -745,6 +1060,13 @@ function backtrack_model(model::Dict{String,Any},
 
         out_rows = Vector{Any}(undef, length(dir_rows))
         for (row_idx, row_any) in enumerate(dir_rows)
+            # Before the ray, not after: the point of the cap is to stop a model
+            # that is already over budget from starting another unbounded tracker.
+            if max_model_seconds !== nothing
+                elapsed = time() - t_model_start
+                elapsed > max_model_seconds &&
+                    throw(ModelTimeout(model_name, elapsed, max_model_seconds))
+            end
             row = row_any isa Dict{String,Any} ? row_any : to_dict(row_any)
             ray_id = try
                 Int(row["ray_id"])
@@ -764,6 +1086,7 @@ function backtrack_model(model::Dict{String,Any},
                                               string(get(row, "flag", "unknown")),
                                               string(get(row, "status", "unknown")),
                                               delta_boundary, delta_post)
+                fallback["post_snap_reason"] = string(get(row, "snap_reason", "unknown"))
                 merge(fallback, Dict(
                     "class_label" => "backtrack_error",
                     "hc_status" => sprint(showerror, err),
@@ -776,7 +1099,7 @@ function backtrack_model(model::Dict{String,Any},
 
         push!(alpha_results, Dict(
             "alpha_idx" => a_idx,
-            "alpha" => alpha,
+            "alpha" => json_number(alpha),
             "directions" => out_rows,
         ))
     end
@@ -807,6 +1130,13 @@ function backtrack_model(model::Dict{String,Any},
             "mode" => "full_model",
         ),
     )
+    if meta !== nothing
+        output["backtrack_config"]["flags"] = meta.flags
+        # Top-level, mirroring post_boundary_dynamics.jl's `post_dynamics_provenance`
+        # and boundary_scan.jl's `scan_provenance`.
+        output["backtrack_provenance"] =
+            merge(meta.provenance, Dict{String,Any}("source_path" => source_path))
+    end
     output["backtrack_results"] = alpha_results
     return output
 end
@@ -815,7 +1145,9 @@ function main()
     opts = parse_args(ARGS)
     run_root = canonical_models_root(@__DIR__, opts.run_dir)
     isdir(run_root) || error("Run directory not found: $run_root")
-    model_paths = resolve_model_paths(run_root, opts.model_file)
+    model_paths = opts.file_list === nothing ?
+        resolve_model_paths(run_root, opts.model_file) :
+        read_file_list(opts.file_list, run_root)
     post_delta_frac = 1.0 - Float64(SCAN_PREBOUNDARY_FRAC)
     0.0 < post_delta_frac < 1.0 || error(
         "Derived backtrack post_delta_frac must be in (0, 1), got $post_delta_frac " *
@@ -834,11 +1166,28 @@ function main()
     )
     back = build_backtrack_cfg()
 
+    meta = run_metadata(opts.force, opts.shard,
+                        opts.file_list === nothing ? nothing : basename(opts.file_list),
+                        opts.max_model_seconds)
+
+    n_all = length(model_paths)
+    if opts.shard !== nothing
+        model_paths = shard_paths(model_paths, opts.shard)
+    end
+
     println("Backtrack perturbation")
     println("  run: $run_root")
-    println("  files: $(length(model_paths))")
+    println("  files: $(length(model_paths))" *
+            (opts.shard === nothing ? "" :
+             " of $n_all (shard $(opts.shard[1])/$(opts.shard[2]))") *
+            (opts.file_list === nothing ? "" : " (file-list $(basename(opts.file_list)))"))
     println("  output: canonical model files in-place")
     println("  processed boundaries: all")
+    println("  skip_done: $(BACK_SKIP_DONE && !opts.force)$(opts.force ? " (--force)" : "")")
+    println("  max_model_seconds: " * (isnothing(opts.max_model_seconds) ? "none (uncapped)" :
+                                       string(opts.max_model_seconds)))
+    println("  git_sha: $(meta.provenance["git_sha"])$(meta.provenance["git_dirty"] ? " (dirty)" : "")")
+    println("  code_sha: $(meta.provenance["code_sha"])")
     println("  reltol: $(dyn["reltol"])")
     println("  abstol: $(dyn["abstol"])")
     println("  eps_extinct: $(dyn["eps_extinct"])")
@@ -846,17 +1195,89 @@ function main()
     println("  check_invasibility: $(back["check_invasibility"])")
 
     n_models = length(model_paths)
+    n_written = 0
+    n_skipped = 0
+    failures  = String[]
+    capped    = String[]
+
     for (idx, model_path) in enumerate(model_paths)
         model_name = basename(model_path)
-        println("[$idx/$n_models] processing $model_name")
 
-        model = to_dict(JSON3.read(read(model_path, String)))
-        payload = backtrack_model(model, dyn, back)
-        safe_write_json(model_path, payload)
-        println("      wrote $model_name")
+        # One bad file must not cost the whole shard: this driver rewrites in
+        # place, so an abort halfway leaves a partly enriched tree with no record
+        # of where it stopped.  Stage 3 learned this the expensive way — a single
+        # model whose payload JSON3 refused to serialize exited its task with 1
+        # after 49 of 50 models had been written correctly.
+        try
+            # Both skip tests run on the LAZY JSON3 object.  to_dict costs ~1.8 s
+            # per model here, and on a requeued shard almost every file is about
+            # to be skipped -- paying deep conversion to decide not to use the
+            # result is the entire cost of a resume.
+            raw = JSON3.read(read(model_path, String))
+
+            # Not every JSON in the tree is a stage-3 output.  The
+            # parameterization_v2 tiers carry a generation_manifest_*.json at
+            # tier root, and exactly one model of that tree has no
+            # post_dynamics_results at all (stage 3 could not serialize it).
+            # Skip, do not die: backtrack_model errors on an empty
+            # post_dynamics_results, and that error is not this run's problem.
+            if !haskey(raw, :post_dynamics_results) || isempty(raw[:post_dynamics_results])
+                println("[$idx/$n_models] skip (no post_dynamics_results): $model_name")
+                n_skipped += 1
+                continue
+            end
+
+            if BACK_SKIP_DONE && !opts.force &&
+               already_backtracked(raw, meta.provenance["code_sha"])
+                println("[$idx/$n_models] skip (backtracked by code_sha $(meta.provenance["code_sha"])): $model_name")
+                n_skipped += 1
+                continue
+            end
+
+            println("[$idx/$n_models] processing $model_name")
+            model = to_dict(raw)
+            payload = backtrack_model(model, dyn, back;
+                                      meta=meta,
+                                      source_path=abspath(model_path),
+                                      model_name=model_name,
+                                      max_model_seconds=opts.max_model_seconds)
+            safe_write_json(model_path, payload)
+            n_written += 1
+            println("      wrote $model_name")
+        catch err
+            msg = sprint(showerror, err)
+            # A capped model is a DECISION, not a failure, and the distinction is
+            # load-bearing: the sbatch writes its .ok sentinel only on rc == 0, so
+            # exiting non-zero here would withhold the sentinel, get the shard
+            # requeued, and walk a deterministic driver back into the same model
+            # forever -- the exact runaway the cap exists to stop.  Reported
+            # loudly, counted separately, and the model is left UNWRITTEN.
+            # boundary_scan.jl treats its own --max-model-seconds the same way.
+            if err isa ModelTimeout
+                println("[$idx/$n_models] CAPPED $model_name: $msg")
+                push!(capped, "$model_name: $msg")
+            else
+                println("[$idx/$n_models] FAILED $model_name: $msg")
+                push!(failures, "$model_name: $msg")
+            end
+        end
     end
 
-    println("Done.")
+    println("Done. written=$n_written skipped=$n_skipped " *
+            "capped=$(length(capped)) failed=$(length(failures))")
+    if !isempty(capped)
+        println("*** cap = $(opts.max_model_seconds) s per model.  These models were NOT written:")
+        for c in capped
+            println("  $c")
+        end
+    end
+    if !isempty(failures)
+        println("Failures:")
+        for f in failures
+            println("  $f")
+        end
+        exit(1)
+    end
 end
 
 if abspath(PROGRAM_FILE) == @__FILE__

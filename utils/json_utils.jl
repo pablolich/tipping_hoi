@@ -1,5 +1,34 @@
 # JSON parsing helpers shared across boundary_scan, post_boundary_dynamics, backtrack_perturbation.
 
+"""
+    to_float_or_nan(x)
+
+Read a JSON scalar as a Float64, mapping `null`, `missing`, an unconvertible
+value, or a non-finite one to NaN.  The inverse of `json_number` below.
+"""
+function to_float_or_nan(x)
+    if x === nothing || ismissing(x)
+        return NaN
+    end
+    v = try
+        Float64(x)
+    catch
+        return NaN
+    end
+    return isfinite(v) ? v : NaN
+end
+
+"""
+    json_number(x)
+
+JSON has no NaN/Inf literal and JSON3 refuses to write one (`error("NaN not
+allowed to be written in JSON spec")`), so a non-finite scalar is written as
+`null` — which is what it means here: *no number*.  `to_float_or_nan` reads it
+back.  Used for the `alpha` / `alpha_grid` labels of families that have no α.
+"""
+json_number(x::Real) = isfinite(x) ? x : nothing
+json_number(v::AbstractVector{<:Real}) = Any[json_number(xi) for xi in v]
+
 function to_dict(x)
     if x isa JSON3.Object
         d = Dict{String,Any}()
