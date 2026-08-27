@@ -10,7 +10,20 @@
     return p_eval
 end
 
+# All three refiners below compute Δt = abs(t_previous - t_end), stop when it is
+# zero, and then call this unconditionally.  Δt == 0.0 makes 1/Δt infinite and
+# `Int(ceil(Inf))` throws InexactError, which propagates out of scan_model and
+# costs the whole model: it is recorded as `failed` in the scan manifest and is
+# simply absent from the scanned bank, i.e. a hole in the ensemble rather than an
+# error anyone reading the output would see.
+#
+# Returning early is not a papering-over.  When Δt == 0 the caller has ALREADY
+# assigned t_end and set keep_tracking = false, so the tracker is never stepped
+# again and every option this function would have written is dead.  Skipping the
+# write is therefore bit-identical for every model that does not reach the
+# branch, and turns the ones that do into the stop the caller already asked for.
 @inline function set_refinement_options!(tracker, Δt)
+    Δt == 0.0 && return tracker
     tracker.options.max_step_size = Δt / 2
     tracker.options.max_steps = max(1, Int(ceil(1 / Δt)))
     tracker.options.min_step_size = Δt * 1e-48
