@@ -160,6 +160,25 @@ function find_invasion(tracker, x_current, invasion_fn, t_end, t_previous, inv_t
     return t_end
 end
 
+# The vanished species at a refined zero crossing: every entry at or below the
+# zero floor `tol` is set to exactly 0.  A refiner that stopped inside the
+# floor leaves |x_i| ≤ tol; one that stopped on a no-progress exit leaves the
+# overshoot, x_i < -tol (2.4% of the `negative` rays in the shipped standard
+# banks, signed minimum entry typically -1e-6 .. -1e-4).  Both are the species
+# whose extinction defines the crossing, and an overshoot left in place is not
+# harmless: row i of diag(x)·J then carries a factor x_i < 0, which turns the
+# species' own stabilising J_ii into a spurious positive eigenvalue ~ -x_i·J_ii
+# of 1e-7 .. 1e-5 — above λ_tol, so `abs(x_i) ≤ tol` alone would have
+# reclassified ~9,200 GLV+HOI rays on nothing
+# (review-1_responses/scratch/find_event_order/census/).  Entries above tol
+# are left untouched.
+@inline function zero_vanished!(x::AbstractVector{<:Real}, tol)
+    @inbounds for i in eachindex(x)
+        x[i] <= tol && (x[i] = 0.0)
+    end
+    return x
+end
+
 function find_event(p_start, p_target, x_start, ws, tol;
                     check_stability::Bool=true, λ_tol=LAMBDA_TOL,
                     check_invasibility::Bool=false,
@@ -208,6 +227,10 @@ function find_event(p_start, p_target, x_start, ws, tol;
     t_end = Complex(0.0)
     event = :still_tracking
     x_crit = copy(x_start)
+    # Set when a crossing's stability test moved the tracker but the onset was
+    # not accepted: the crossing state as it was, so the ray is returned exactly
+    # as it would have been without the test.
+    x_crit_keep = nothing
 
     keep_tracking = true
 
@@ -253,6 +276,46 @@ function find_event(p_start, p_target, x_start, ws, tol;
                         find_zero(ws.tracker, copy(x_snap), best_i, t_cur, t_previous, tol)
                     end
                     keep_tracking = false
+                end
+            end
+
+            # Negativity is tested before stability inside a step, so a loss of
+            # stability that happens in the SAME step as a zero crossing was
+            # never seen: the ray came back `negative` at the crossing although
+            # the equilibrium had stopped being the attractor earlier.  Test the
+            # crossing state with the vanished species set to exactly 0
+            # (zero_vanished!).  Its community matrix then has a zero row, so
+            # its spectrum is {0} plus that of the surviving block; the block
+            # being unstable means the full equilibrium was already unstable
+            # just before the crossing, and the boundary is that onset —
+            # refined between the previous step and the crossing, exactly as a
+            # mid-step instability is.
+            #
+            # The test itself touches only the workspace buffers.  The tracker
+            # moves only when the block is unstable, and the ray is relabelled
+            # only when find_stability then locates the onset STRICTLY before
+            # the crossing, at a state with every species present; otherwise
+            # the crossing is returned exactly as it was, so a ray that is not
+            # reclassified comes out bit-identical.  The two ways the onset is
+            # not located: the crossing state is not on the branch — a refiner
+            # that ended on a no-progress exit far past zero (x_i of −1.5, −29
+            # were seen on the aguade and karatayev banks), from which init!
+            # cannot start — or λ_max sits inside find_stability's stopping band
+            # at the crossing itself.  Either way `unstable` at an unchanged
+            # δ_c would be a failed refinement relabelled as a boundary type.
+            if !keep_tracking && event === :negative && check_stability
+                x_zero = zero_vanished!(copy(real.(ws.tracker.state.x)), tol)
+                parameters_at_t!(ws.p_eval, t_end, p_start, p_target)
+                if lambda_max_equilibrium_hc!(ws, x_zero, ws.p_eval) >= λ_tol
+                    x_cross = copy(real.(ws.tracker.state.x))
+                    t_onset = find_stability(ws.tracker, ws, x_zero, p_start, p_target,
+                                             t_end, t_previous, λ_tol)
+                    if real(t_onset) > real(t_end) && all(xᵢ -> xᵢ > tol, real.(ws.tracker.state.x))
+                        event = :unstable
+                        t_end = t_onset
+                    else
+                        x_crit_keep = x_cross
+                    end
                 end
             end
 
@@ -307,7 +370,7 @@ function find_event(p_start, p_target, x_start, ws, tol;
         end
     end
 
-    x_crit = copy(real.(ws.tracker.state.x))
+    x_crit = x_crit_keep === nothing ? copy(real.(ws.tracker.state.x)) : x_crit_keep
     init!(ws.tracker, x_start, 1.0, 0.0)
     reset_tracker_options!(ws.tracker)
     return event, t_end, x_crit
