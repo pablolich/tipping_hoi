@@ -6,7 +6,7 @@
 #
 # Covers: all pure-utility functions, all early-exit paths in
 # process_direction_row, lambda_max_equilibrium_hc!, track_to_preboundary,
-# HC event paths (:success, :unstable, :invasion), and backtrack_model.
+# HC event paths (:success, :unstable_at_start, :invasion), and backtrack_model.
 
 using Test
 using LinearAlgebra
@@ -286,8 +286,17 @@ end
     @test result["delta_event"] < 1e-6    # tracked all the way to delta=0
 end
 
-@testset "HC event: unstable (λ_max ≥ 0 at start)" begin
-    # Community Jacobian = Diagonal(x)*A = I at x=[1,1] → λ_max = 1 > 0
+@testset "HC event: unstable_at_start (λ_max ≥ 0 at start)" begin
+    # Community Jacobian = Diagonal(x)*A = I at x=[1,1] → λ_max = 1 > 0.
+    #
+    # The event is :unstable_at_start, NOT :unstable.  Group-A fix A2
+    # (utils/boundary_event_utils.jl:181; atn_bank_plan.md §3 and
+    # stouffer_regeneration_plan.md §3) split the "x_start was already
+    # unstable and the homotopy never moved" case out of the
+    # mid-track :unstable returned at boundary_event_utils.jl:254.  The two are
+    # different statements — one is a boundary found at delta_c > 0, the other
+    # is a bad anchor — and being distinguishable is the point of A2, so this
+    # asserts the exact symbol rather than accepting either.
     r0_u    = [-1.0, -1.0]
     A_eff_u = Matrix{Float64}([1.0 0.0; 0.0 1.0])
     B_eff_u = zeros(Float64, 2, 2, 2)
@@ -306,8 +315,14 @@ end
     )
     result_u = process_direction_row(row_u, 1, 0.0, 1, r0_u, A_eff_u, B_eff_u, U_u, dyn, back, cache)
 
-    @test result_u["hc_event"] == "unstable"
+    @test result_u["hc_event"] == "unstable_at_start"
     @test result_u["ode_ran"]  == true
+    # A2's own claim, in BACKTRACK's direction convention: the homotopy has not
+    # moved, so t is still 1 and the event sits at the ray's own delta_post.
+    # (In boundary_scan.jl the homotopy runs the other way — t = 1 is delta 0 —
+    # which is why A2's comment there says delta_c == 0.  Same statement, two
+    # parameterisations; do not copy the number across.)
+    @test result_u["delta_event"] == 0.1
 end
 
 @testset "HC event: invasion (inactive species invades)" begin
