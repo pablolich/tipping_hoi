@@ -326,6 +326,15 @@ function scan_ray_linear_alpha0(A::AbstractMatrix{<:Real},
     end
 
     # Earliest instability crossing while still before negativity.
+    #
+    # The grid is walked on every ray that starts stable, and the earliest
+    # stable → unstable bracket on it is the boundary.  It used to be consulted
+    # only when λ_max at the FAR end (s_limit) was unstable, so a loss of
+    # stability that began and ended before s_limit — a window, the linear
+    # path's form of the gap find_event's window test closes — was never
+    # looked for.  A ray whose far end is unstable gets the bracket it always
+    # got (the far end is the last grid point, so one exists), and a ray with
+    # no bracket is unchanged: both are bit-identical.
     s_unstable = Inf
     s_unstable_lo = 0.0
     s_unstable_hi = Inf
@@ -333,7 +342,7 @@ function scan_ray_linear_alpha0(A::AbstractMatrix{<:Real},
     λ0 = SCAN_CHECK_STABILITY ? lambda_at(0.0) : Inf
     if SCAN_CHECK_STABILITY && λ0 <= λ_tol
         s_limit = min(max_pert_mag, isfinite(s_neg) ? s_neg : max_pert_mag)
-        if s_limit > 0.0 && lambda_at(s_limit) > λ_tol
+        if s_limit > 0.0
             bracket_found = false
             lo = 0.0
             hi = s_limit
@@ -351,13 +360,14 @@ function scan_ray_linear_alpha0(A::AbstractMatrix{<:Real},
                 s_prev = s_k
                 λ_prev = λ_k
             end
-            if !bracket_found
-                lo = 0.0
-                hi = s_limit
+            if bracket_found
+                if !(lambda_at(s_limit) > λ_tol)
+                    FIND_EVENT_WINDOW_STATS.linear_windows += 1
+                end
+                s_unstable_lo, s_unstable_hi, depth_unstable =
+                    bisection_interval(s -> lambda_at(s) > λ_tol, lo, hi)
+                s_unstable = s_unstable_hi
             end
-            s_unstable_lo, s_unstable_hi, depth_unstable =
-                bisection_interval(s -> lambda_at(s) > λ_tol, lo, hi)
-            s_unstable = s_unstable_hi
         end
     end
 

@@ -179,16 +179,241 @@ end
     return x
 end
 
+# ─── An instability window inside one tracker step ───────────────────────────
+#
+# find_event sees λ_max only at the steps its tracker accepts, and the tracker
+# sets the step length from the path's curvature and the Newton radius: it
+# knows nothing about λ_max.  A loss of stability that begins AND ends between
+# two accepted steps — λ_max below λ_tol at both — was therefore invisible, and
+# the ray went on to be reported at a later event, typically `negative` at an
+# extinction, although the equilibrium had stopped being the attractor earlier
+# (first seen on ray 93 of community 9 of the Patil–Altieri h = 0 control:
+# accepted steps at δ = 0.792 and 1.192, unstable on 1.011–1.148, reported
+# `negative` at 1.306).  An instability that begins in the step that ends at a
+# zero crossing and lasts up to the crossing is the other half of the same
+# blind spot, closed by the test of the crossing state (zero_vanished! above).
+#
+# The test, on every accepted step whose two ends are stable:
+#   1. the slope of λ_max along the path at each end (lambda_slope): one more
+#      λ_max per step, a one-sided difference along the tangent the tracker's
+#      predictor already holds;
+#   2. rising at the start and falling at the end means λ_max has a maximum
+#      inside the step.  Estimate it with the cubic through the two values and
+#      the two slopes (hermite_max) and compare with the trigger level
+#      (window_trigger);
+#   3. on a trigger, re-walk the step in WINDOW_SUBSTEPS pieces on an AUXILIARY
+#      tracker over the same homotopy, with λ_max at every sub-step, and refine
+#      the first unstable one with find_stability (find_window_onset).
+#
+# Steps 1–3 touch the workspace buffers and the auxiliary tracker only.  The
+# main tracker is never stepped, re-initialised or re-optioned by any of it,
+# so a ray on which no onset is accepted comes out bit-identical.
+#
+# Not seen, by construction: a bump the two end slopes do not notice (λ_max
+# turning around twice inside one step); a species dipping below the zero
+# floor and back inside a step — the re-walk stops there and counts it; and a
+# window inside a step that ends the ray (at a crossing, a fold, or an onset
+# further on), since only a step with two stable ends is tested.
+
+const WINDOW_SLOPE_EPS = 1e-6
+const WINDOW_SUBSTEPS  = 8
+
+# Run totals of the window test, so the rates are on record without a per-ray
+# field.  The scan is single-threaded; a caller that wants per-run numbers
+# resets before and reads after.
+mutable struct WindowStats
+    turnarounds::Int       # steps, both ends stable, λ_max rising at the start and falling at the end
+    triggers::Int          # turnarounds whose cubic maximum reaches the trigger level
+    triggers_strict::Int   # turnarounds whose cubic maximum reaches λ_tol itself
+    rewalks::Int           # steps re-walked on the auxiliary tracker
+    substeps::Int          # accepted sub-steps over all re-walks
+    onsets::Int            # re-walks that located an onset with every species present
+    onsets_strict::Int     # onsets on a step the strict rule also triggers
+    onsets_rejected::Int   # unstable sub-step found, a species missing at the refined onset
+    stopped_negative::Int  # re-walks stopped on a sub-step with an abundance at or below the floor
+    linear_windows::Int    # α = 0 analytic rays unstable on the grid and stable at its far end
+end
+WindowStats() = WindowStats(0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+
+const FIND_EVENT_WINDOW_STATS = WindowStats()
+
+function reset_window_stats!(stats::WindowStats=FIND_EVENT_WINDOW_STATS)
+    for f in fieldnames(WindowStats)
+        setfield!(stats, f, 0)
+    end
+    return stats
+end
+
+window_stats_dict(stats::WindowStats=FIND_EVENT_WINDOW_STATS) =
+    Dict{String,Int}(String(f) => getfield(stats, f) for f in fieldnames(WindowStats))
+
+# Slope of λ_max along the tracked path per unit s = 1 − t (t runs 1 → 0, so
+# s grows with the perturbation: positive means rising in δ), at an accepted
+# point (x, t) where λ_max = λ.  `tx¹[i, 2]` is dx_i/dt there — the predictor's
+# tangent, filled by init! and after every accepted step — so the point a
+# distance ε further along the path is x − ε·x¹ at t − ε, and
+#
+#     slope = [ λ_max(x − ε·x¹, t − ε) − λ ] / ε.
+#
+# ε is WINDOW_SLOPE_EPS in t, shortened where the tangent is long so the probe
+# never sits more than 1e-6·max(1, ‖x‖) from x: on a bank scanned with
+# max_pert = 1000 a fixed 1e-6 in t is 1e-3 in δ, and next to a fold, where
+# ‖x¹‖ diverges, it would step off the branch.  `λ_at(x, t)` evaluates λ_max;
+# `x_probe` is a buffer.  NaN (never a turnaround) if the tangent is not finite.
+function lambda_slope(λ_at, x, tx¹, t, λ, x_probe; ε_max=WINDOW_SLOPE_EPS)
+    norm_x = 0.0
+    norm_v = 0.0
+    @inbounds for i in eachindex(x)
+        norm_x = max(norm_x, abs(x[i]))
+        norm_v = max(norm_v, abs(real(tx¹[i, 2])))
+    end
+    isfinite(norm_v) || return NaN
+    ε = ε_max * min(1.0, max(1.0, norm_x) / norm_v)
+    ε > 0 || return NaN
+    @inbounds for i in eachindex(x)
+        x_probe[i] = x[i] - ε * real(tx¹[i, 2])
+    end
+    return (λ_at(x_probe, t - ε) - λ) / ε
+end
+
+# Maximum over τ ∈ [0, 1] of the cubic through the values λ_a, λ_b and the
+# slopes m_a, m_b at the two ends of a step of length h (h in the slopes' own
+# variable):
+#
+#     H(τ) = (2τ³ − 3τ² + 1) λ_a + (τ³ − 2τ² + τ) h m_a
+#          + (−2τ³ + 3τ²) λ_b + (τ³ − τ²) h m_b.
+#
+# Candidates are the two ends and the roots of H′, a quadratic.  Returns
+# (H_max, τ_max).
+function hermite_max(λ_a, λ_b, m_a, m_b, h)
+    d_a = h * m_a
+    d_b = h * m_b
+    c1 = d_a
+    c2 = 3 * (λ_b - λ_a) - 2 * d_a - d_b
+    c3 = 2 * (λ_a - λ_b) + d_a + d_b
+    H(τ) = ((c3 * τ + c2) * τ + c1) * τ + λ_a
+
+    # H′(τ) = 3 c3 τ² + 2 c2 τ + c1; a root that does not exist stays NaN
+    a, b, c = 3 * c3, 2 * c2, c1
+    τ₁ = τ₂ = NaN
+    if a == 0
+        b == 0 || (τ₁ = -c / b)
+    else
+        disc = b^2 - 4 * a * c
+        if disc ≥ 0
+            q = -(b + copysign(sqrt(disc), b)) / 2
+            τ₁ = q / a
+            q == 0 || (τ₂ = c / q)
+        end
+    end
+
+    H_max, τ_max = λ_a ≥ λ_b ? (float(λ_a), 0.0) : (float(λ_b), 1.0)
+    for τ in (τ₁, τ₂)
+        if 0 < τ < 1 && H(τ) > H_max
+            H_max, τ_max = H(τ), τ
+        end
+    end
+    return H_max, τ_max
+end
+
+# Whether a turnaround is worth a re-walk.  The cubic is an estimate of the
+# maximum, not a bound — on the ray that found the bug it gives +0.0047 against
+# a true peak of +0.0018, the safe direction, but it can err the other way — so
+# the default asks for less than λ_tol by the smaller of the two end margins.
+# With two stable ends that is H_max ≥ max(λ_a, λ_b) + λ_tol: any interior
+# maximum that clears the higher end, which at a turnaround is all of them.
+# `strict` is the bare comparison with λ_tol.
+window_trigger(H_max, λ_a, λ_b, λ_tol; strict::Bool=false) =
+    H_max ≥ (strict ? λ_tol : λ_tol - min(abs(λ_a), abs(λ_b)))
+
+# Re-walk one accepted step, from (x_from, t_from) to t_to, on the auxiliary
+# tracker `aux` with the step capped at 1/WINDOW_SUBSTEPS of its length, and
+# evaluate λ_max at every accepted sub-step.  The first sub-step with
+# λ_max ≥ λ_tol brackets the onset against the sub-step before it, and
+# find_stability refines it there exactly as find_event does for a sign change
+# between two of its own steps.  Returns (t_onset, x_onset) when the onset is
+# located at a state with every species present, `nothing` otherwise:
+#   * no sub-step is unstable (the cubic overestimated, or the window is
+#     narrower than a sub-step);
+#   * a sub-step has an abundance at or below the floor — a species dipping
+#     under zero and back inside a step whose ends are both positive.  That is
+#     a different gap from this one; the re-walk stops and counts it;
+#   * a species is missing at the refined onset.
+# `aux` shares the main tracker's homotopy object, so it sees the ray's
+# parameters without anything being set, and the homotopy's only state is a
+# cache keyed on t.  Its options are rewritten here on every call.
+function find_window_onset(aux, ws, x_from, t_from, t_to, p_start, p_target, tol, λ_tol;
+                           stats::WindowStats=FIND_EVENT_WINDOW_STATS)
+    stats.rewalks += 1
+    reset_tracker_options!(aux)
+    aux.options.max_step_size = abs(t_from - t_to) / WINDOW_SUBSTEPS
+    init!(aux, x_from, t_from, t_to) || return nothing
+
+    x_sub = Vector{Float64}(undef, length(x_from))
+    while is_tracking(aux.state.code)
+        t_sub_previous = aux.state.t
+        HomotopyContinuation.step!(aux)
+        aux.state.t == t_sub_previous && continue      # rejected: nothing new to test
+        stats.substeps += 1
+
+        x_sub .= real.(aux.state.x)
+        if any(xᵢ -> xᵢ ≤ tol, x_sub)
+            stats.stopped_negative += 1
+            return nothing
+        end
+
+        parameters_at_t!(ws.p_eval, aux.state.t, p_start, p_target)
+        λ_sub = lambda_max_equilibrium_hc!(ws, x_sub, ws.p_eval)
+        if λ_sub ≥ λ_tol
+            t_onset = aux.state.t
+            if abs(λ_sub - λ_tol) > λ_tol
+                t_onset = find_stability(aux, ws, copy(x_sub), p_start, p_target,
+                                         aux.state.t, t_sub_previous, λ_tol)
+            end
+            x_onset = copy(real.(aux.state.x))
+            if all(xᵢ -> xᵢ > tol, x_onset)
+                return t_onset, x_onset
+            end
+            stats.onsets_rejected += 1
+            return nothing
+        end
+    end
+    return nothing
+end
+
+# The auxiliary tracker of the re-walks: a second Tracker over the main
+# tracker's own homotopy object.  The assertion is for the compiler.  The
+# constructor's return type is inferred as a union of two tracker types, and
+# without it the whole tracker stack is compiled a second time for the one
+# that is never built: 2 s more on every system scanned, a third of the time
+# of a scan that is mostly compilation.
+auxiliary_tracker(tracker) =
+    Tracker(tracker.homotopy; options=tracker.options)::typeof(tracker)
+
 function find_event(p_start, p_target, x_start, ws, tol;
                     check_stability::Bool=true, λ_tol=LAMBDA_TOL,
                     check_invasibility::Bool=false,
-                    invasion_fn=nothing, invasion_tol::Float64=1e-10)
+                    invasion_fn=nothing, invasion_tol::Float64=1e-10,
+                    window_test::Bool=true)
     start_parameters!(ws.tracker, p_start)
     target_parameters!(ws.tracker, p_target)
     init!(ws.tracker, x_start, 1.0, 0.0)
     x_current = Vector{Float64}(undef, length(x_start))
     λ_previous = -Inf
     inv_previous = -Inf
+
+    # The window test (see above), gated on check_stability like every other
+    # stability test here: the slope and state at the previous accepted step,
+    # and the auxiliary tracker, built on the first trigger of the ray.
+    test_window = window_test && check_stability
+    m_previous = NaN
+    x_previous = collect(Float64, x_start)
+    x_probe = similar(x_current)
+    λ_at = (x, t) -> begin
+        parameters_at_t!(ws.p_eval, t, p_start, p_target)
+        lambda_max_equilibrium_hc!(ws, x, ws.p_eval)
+    end
+    aux = nothing
 
     if check_stability
         parameters_at_t!(ws.p_eval, ws.tracker.state.t, p_start, p_target)
@@ -212,6 +437,10 @@ function find_event(p_start, p_target, x_start, ws, tol;
             # downstream; being distinguishable is the entire point.
             return :unstable_at_start, ws.tracker.state.t, x_crit
         end
+        if test_window
+            m_previous = lambda_slope(λ_at, x_start, ws.tracker.predictor.tx¹,
+                                      real(ws.tracker.state.t), λ_previous, x_probe)
+        end
     end
 
     if check_invasibility && invasion_fn !== nothing
@@ -227,9 +456,11 @@ function find_event(p_start, p_target, x_start, ws, tol;
     t_end = Complex(0.0)
     event = :still_tracking
     x_crit = copy(x_start)
-    # Set when a crossing's stability test moved the tracker but the onset was
-    # not accepted: the crossing state as it was, so the ray is returned exactly
-    # as it would have been without the test.
+    # The state to return when it is not the one the main tracker ends on.  Set
+    # when a crossing's stability test moved the tracker but the onset was not
+    # accepted — the crossing state as it was, so the ray is returned exactly as
+    # it would have been without the test — and when the window test located an
+    # onset, which lives on the auxiliary tracker.
     x_crit_keep = nothing
 
     keep_tracking = true
@@ -335,6 +566,42 @@ function find_event(p_start, p_target, x_start, ws, tol;
                     end
                     keep_tracking = false
                 else
+                    # Both ends of the step are stable.  If λ_max was rising
+                    # when the step began and is falling now, it had a maximum
+                    # in between; when the cubic through the two ends puts that
+                    # maximum high enough, re-walk the step on the auxiliary
+                    # tracker.  A rejected step (t did not move) has nothing
+                    # new to test.
+                    if test_window && ws.tracker.state.t != t_previous
+                        m_current = lambda_slope(λ_at, x_current, ws.tracker.predictor.tx¹,
+                                                 real(ws.tracker.state.t), λ_current, x_probe)
+                        if m_previous > 0 && m_current < 0
+                            stats = FIND_EVENT_WINDOW_STATS
+                            stats.turnarounds += 1
+                            H_max, _ = hermite_max(λ_previous, λ_current, m_previous, m_current,
+                                                   real(t_previous) - real(ws.tracker.state.t))
+                            strict = window_trigger(H_max, λ_previous, λ_current, λ_tol; strict=true)
+                            stats.triggers_strict += strict
+                            if window_trigger(H_max, λ_previous, λ_current, λ_tol)
+                                stats.triggers += 1
+                                if aux === nothing
+                                    aux = auxiliary_tracker(ws.tracker)
+                                end
+                                onset = find_window_onset(aux, ws, x_previous, t_previous,
+                                                          ws.tracker.state.t, p_start, p_target,
+                                                          tol, λ_tol)
+                                if onset !== nothing
+                                    event = :unstable
+                                    t_end, x_crit_keep = onset
+                                    keep_tracking = false
+                                    stats.onsets += 1
+                                    stats.onsets_strict += strict
+                                end
+                            end
+                        end
+                        m_previous = m_current
+                        x_previous .= x_current
+                    end
                     λ_previous = λ_current
                 end
             end
