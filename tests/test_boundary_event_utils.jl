@@ -302,14 +302,21 @@ end
 #                     is `unstable` at the first onset, every species present,
 #                     inside the bracket an independent grid of track_to_params!
 #                     puts around it (review-1_responses/scratch/find_event_window/).
+#   crossing_window   the same inside the step that ends at the zero crossing
+#                     (find_event_window_crossing.json): the last accepted state
+#                     is stable, the surviving block at the crossing is stable,
+#                     and the equilibrium is unstable on a stretch in between.
 #   trigger_no_onset  a step turns around and is re-walked, and the re-walk
 #                     finds nothing: the ray must come out bit for bit as it
 #                     does with the test off — the auxiliary-tracker guarantee.
 #   no_turnaround     no step turns around: the same bit-for-bit agreement, and
 #                     agreement with the shipped delta_c.
+# Every `negative` ray has its crossing step re-walked exactly once, whatever
+# its kind, and comes out bit for bit when that re-walk finds nothing.
 
 const WINDOW_FIXTURES = [joinpath(@__DIR__, "fixtures", "find_event_window.json"),
-                         joinpath(@__DIR__, "fixtures", "find_event_window_unstable.json")]
+                         joinpath(@__DIR__, "fixtures", "find_event_window_unstable.json"),
+                         joinpath(@__DIR__, "fixtures", "find_event_window_crossing.json")]
 
 @testset "find_event: instability window ($(basename(FIXTURE)))" for FIXTURE in WINDOW_FIXTURES
     fx    = to_dict(JSON3.read(read(FIXTURE, String)))
@@ -343,12 +350,13 @@ const WINDOW_FIXTURES = [joinpath(@__DIR__, "fixtures", "find_event_window.json"
         @testset "alpha $alpha_idx ray $ray_id ($kind)" begin
             @test on.event === Symbol(ray["expected_flag"])
             @test abs(on.delta - Float64(ray["expected_delta"])) <= rtol * Float64(ray["expected_delta"])
-            if kind == "window"
+            if kind == "window" || kind == "crossing_window"
                 # without the test: the shipped result
                 @test off.event === Symbol(ray["baseline_flag"])
                 @test abs(off.delta - Float64(ray["baseline_delta_c"])) <= rtol * Float64(ray["baseline_delta_c"])
                 # with it: the onset, before the old boundary, every species present
-                @test on.stats["onsets"] == 1
+                @test on.stats["onsets"] == (kind == "window" ? 1 : 0)
+                @test on.stats["crossing_onsets"] == (kind == "crossing_window" ? 1 : 0)
                 @test on.delta < Float64(ray["shipped_delta_c"])
                 @test all(>(0), on.x_crit)
                 lo, hi = Float64.(ray["verified_bracket"])
@@ -358,6 +366,8 @@ const WINDOW_FIXTURES = [joinpath(@__DIR__, "fixtures", "find_event_window.json"
                 @test on.t_end == off.t_end
                 @test on.x_crit == off.x_crit
                 @test on.stats["onsets"] == 0
+                @test on.stats["crossing_onsets"] == 0
+                @test on.stats["crossing_rewalks"] == (on.event === :negative ? 1 : 0)
                 if kind == "trigger_no_onset"
                     @test on.stats["triggers"] >= 1
                     @test on.stats["rewalks"] >= 1

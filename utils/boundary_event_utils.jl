@@ -205,15 +205,27 @@ end
 #      tracker over the same homotopy, with λ_max at every sub-step, and refine
 #      the first unstable one with find_stability (find_window_onset).
 #
-# Steps 1–3 touch the workspace buffers and the auxiliary tracker only.  The
-# main tracker is never stepped, re-initialised or re-optioned by any of it,
-# so a ray on which no onset is accepted comes out bit-identical.
+# The step that ends at a zero crossing is re-walked too, from the last
+# accepted state to the refined crossing, and without a trigger: with the
+# vanished species at zero the crossing state has λ_max = 0 by construction, so
+# there is no far-end value or slope that says anything about the stretch
+# before it.  On the shipped banks what is found there is a complex pair that
+# crosses into the right half-plane before a species goes extinct (51 cases, at
+# 0.67–0.99 of δ_c, median 0.94) and whose growth rate falls back below zero
+# before the crossing or, with the abundance of the species on its way out, to
+# zero exactly at it.  The test of the crossing state finds the surviving block
+# stable and sees none of it.
+#
+# Steps 1–3 and the crossing re-walk touch the workspace buffers and the
+# auxiliary tracker only.  The main tracker is never stepped, re-initialised or
+# re-optioned by any of it, so a ray on which no onset is accepted comes out
+# bit-identical.
 #
 # Not seen, by construction: a bump the two end slopes do not notice (λ_max
-# turning around twice inside one step); a species dipping below the zero
-# floor and back inside a step — the re-walk stops there and counts it; and a
-# window inside a step that ends the ray (at a crossing, a fold, or an onset
-# further on), since only a step with two stable ends is tested.
+# turning around twice inside one step); a window narrower than a sub-step; a
+# species dipping below the zero floor and back inside a step — the re-walk
+# stops there and counts it; and a window inside a step that ends at a fold or
+# at an onset further on.
 
 const WINDOW_SLOPE_EPS = 1e-6
 const WINDOW_SUBSTEPS  = 8
@@ -232,8 +244,10 @@ mutable struct WindowStats
     onsets_rejected::Int   # unstable sub-step found, a species missing at the refined onset
     stopped_negative::Int  # re-walks stopped on a sub-step with an abundance at or below the floor
     linear_windows::Int    # α = 0 analytic rays unstable on the grid and stable at its far end
+    crossing_rewalks::Int  # steps ending at a zero crossing re-walked (one per `negative` ray)
+    crossing_onsets::Int   # of those, an onset located before the crossing
 end
-WindowStats() = WindowStats(0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+WindowStats() = WindowStats(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
 
 const FIND_EVENT_WINDOW_STATS = WindowStats()
 
@@ -335,16 +349,19 @@ window_trigger(H_max, λ_a, λ_b, λ_tol; strict::Bool=false) =
 # located at a state with every species present, `nothing` otherwise:
 #   * no sub-step is unstable (the cubic overestimated, or the window is
 #     narrower than a sub-step);
-#   * a sub-step has an abundance at or below the floor — a species dipping
-#     under zero and back inside a step whose ends are both positive.  That is
-#     a different gap from this one; the re-walk stops and counts it;
+#   * a sub-step has an abundance at or below the floor.  With `to_crossing`
+#     that is the crossing the step ends at, and the walk is over.  Otherwise
+#     it is a species dipping under zero and back inside a step whose ends are
+#     both positive — a different gap from this one; the re-walk stops and
+#     counts it;
 #   * a species is missing at the refined onset.
 # `aux` shares the main tracker's homotopy object, so it sees the ray's
 # parameters without anything being set, and the homotopy's only state is a
 # cache keyed on t.  Its options are rewritten here on every call.
 function find_window_onset(aux, ws, x_from, t_from, t_to, p_start, p_target, tol, λ_tol;
+                           to_crossing::Bool=false,
                            stats::WindowStats=FIND_EVENT_WINDOW_STATS)
-    stats.rewalks += 1
+    to_crossing ? (stats.crossing_rewalks += 1) : (stats.rewalks += 1)
     reset_tracker_options!(aux)
     aux.options.max_step_size = abs(t_from - t_to) / WINDOW_SUBSTEPS
     init!(aux, x_from, t_from, t_to) || return nothing
@@ -358,7 +375,7 @@ function find_window_onset(aux, ws, x_from, t_from, t_to, p_start, p_target, tol
 
         x_sub .= real.(aux.state.x)
         if any(xᵢ -> xᵢ ≤ tol, x_sub)
-            stats.stopped_negative += 1
+            to_crossing || (stats.stopped_negative += 1)
             return nothing
         end
 
@@ -404,7 +421,7 @@ function find_event(p_start, p_target, x_start, ws, tol;
 
     # The window test (see above), gated on check_stability like every other
     # stability test here: the slope and state at the previous accepted step,
-    # and the auxiliary tracker, built on the first trigger of the ray.
+    # and the auxiliary tracker, built the first time the ray needs a re-walk.
     test_window = window_test && check_stability
     m_previous = NaN
     x_previous = collect(Float64, x_start)
@@ -547,6 +564,29 @@ function find_event(p_start, p_target, x_start, ws, tol;
                     else
                         x_crit_keep = x_cross
                     end
+                end
+            end
+
+            # The test above looks at the crossing state only, and there it
+            # sees an unstable surviving block and nothing else: a mode whose
+            # growth rate scales with the vanishing abundance reads zero.  The
+            # step that ends here began at a stable accepted state, so a loss
+            # of stability inside it — one that closed before the crossing, or
+            # one that fades with the abundance — is as invisible as a window
+            # between two stable steps, and the crossing offers no value or
+            # slope to trigger on.  Re-walk it, from that state to the
+            # crossing, on the auxiliary tracker; a ray whose re-walk finds
+            # nothing is returned exactly as it was.
+            if !keep_tracking && event === :negative && test_window
+                if aux === nothing
+                    aux = auxiliary_tracker(ws.tracker)
+                end
+                onset = find_window_onset(aux, ws, x_previous, t_previous, t_end,
+                                          p_start, p_target, tol, λ_tol; to_crossing=true)
+                if onset !== nothing
+                    event = :unstable
+                    t_end, x_crit_keep = onset
+                    FIND_EVENT_WINDOW_STATS.crossing_onsets += 1
                 end
             end
 
